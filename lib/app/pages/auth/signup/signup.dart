@@ -47,11 +47,9 @@ class _SignupState extends State<Signup> {
     context.mounted ? showLoadingCircle(context) : null;
     try {
       await _auth.signup(emailController.text, passwordController.text);
-
-      context.mounted ? hideLoadingCircle(context) : null;
-
       await _db.saveUserInfoInFirebase(
           name: nameController.text, email: emailController.text);
+      context.mounted ? hideLoadingCircle(context) : null;
     } catch (e) {
       hideLoadingCircle(context);
       ScaffoldMessenger.of(context).showSnackBar(

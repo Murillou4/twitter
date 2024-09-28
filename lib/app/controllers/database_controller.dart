@@ -1,12 +1,14 @@
 import 'dart:io';
 
 import 'package:flutter/material.dart';
+import 'package:giphy_picker/giphy_picker.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:twitter/app/models/comment.dart';
 import 'package:twitter/app/models/post.dart';
 import 'package:twitter/app/services/database_service.dart';
 import 'package:twitter/app/pages/auth/services/auth_service.dart';
 import 'package:twitter/app/models/user.dart';
+import 'package:twitter/app/src/download_gif.dart';
 
 class DatabaseController extends ChangeNotifier {
   final _auth = AuthService();
@@ -263,20 +265,16 @@ class DatabaseController extends ChangeNotifier {
       postsLikeCount[postId] = (postsLikeCountOriginal[postId] ?? 0) + 1;
     }
 
-    notifyListeners();
-
     try {
       await _db.likePostInFirebase(postId);
     } catch (e) {
       userLikedPosts = userLikedPostsOriginal;
       postsLikeCount = postsLikeCountOriginal;
-      notifyListeners();
     }
   }
 
   Future<void> likeComment(
       {required String postId, required String commentId}) async {
-    final uid = _auth.getCurrentUserUid();
     final userLikedCommentsOriginal = userLikedComments;
     final commentsLikeCountOriginal = commentsLikeCount;
 
@@ -304,9 +302,9 @@ class DatabaseController extends ChangeNotifier {
   }
 
   Future<void> deletePost(String postId) async {
-    posts.removeWhere((post) => post.id == postId);
-    notifyListeners();
     await _db.deletePostInFirebase(postId);
+    posts = await getPosts();
+    notifyListeners();
   }
 
   Future<List<Post>> getPosts() async {
@@ -345,8 +343,21 @@ class DatabaseController extends ChangeNotifier {
     notifyListeners();
   }
 
-  Future<void> updateProfileImage(ImageSource source) async {
+  Future<void> updateProfileImage(BuildContext context ,ImageSource source,
+      [bool isGif = false]) async {
     final uid = _auth.getCurrentUserUid();
+    if (isGif) {
+      final gif = await GiphyPicker.pickGif(
+          context: context, apiKey: 'LgLuuMlL3aaDQHRHL5gXsVtgHY9woHTU');
+      if (gif == null) return;
+      // Baixa o GIF da URL e salva localmente
+      final gifUrl = gif.images.original!.url;
+      final gifFile = await downloadGif(gifUrl!);
+      await _db.updateUserProfileImageInFirebase(gifFile);
+      loggedUserInfo = await userProfile(uid);
+      notifyListeners();
+      return;
+    }
     ImagePicker imagePicker = ImagePicker();
     XFile? image = await imagePicker.pickImage(source: source);
     if (image == null) return;

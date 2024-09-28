@@ -1,7 +1,7 @@
 import 'dart:io';
-
 import 'package:flutter/material.dart';
 import 'package:gap/gap.dart';
+import 'package:giphy_picker/giphy_picker.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:provider/provider.dart';
 import 'package:twitter/app/controllers/database_controller.dart';
@@ -9,6 +9,8 @@ import 'package:twitter/app/core/app_colors.dart';
 import 'package:twitter/app/widgets/gallery_or_camera_card.dart';
 import 'package:twitter/app/widgets/my_button.dart';
 import 'package:twitter/app/widgets/my_loading_circle.dart';
+import 'package:dio/dio.dart';
+import 'package:path_provider/path_provider.dart';
 
 class InputPostDialog extends StatefulWidget {
   const InputPostDialog({
@@ -24,13 +26,51 @@ class _InputPostDialogState extends State<InputPostDialog> {
   TextEditingController postController = TextEditingController();
   late final databaseController =
       Provider.of<DatabaseController>(context, listen: false);
-  Future<void> selectImage(ImageSource source) async {
-    final image = await ImagePicker().pickImage(source: source);
-    if (image == null) return;
-    final imageTemporary = File(image.path);
-    setState(() {
-      this.image = imageTemporary;
-    });
+
+  Future<void> selectImage(BuildContext context, ImageSource source,
+      [bool isGif = false]) async {
+    if (isGif) {
+      final gif = await GiphyPicker.pickGif(
+        context: context,
+        apiKey: 'LgLuuMlL3aaDQHRHL5gXsVtgHY9woHTU',
+        appBarBuilder: (context, {actions, title}) {
+          return AppBar(
+            title: title,
+            actions: actions,
+          );
+        },
+      );
+      if (gif == null) return;
+
+      // Baixa o GIF da URL e salva localmente
+      final gifUrl = gif.images.original!.url;
+      final gifFile = await _downloadGif(gifUrl!);
+
+      setState(() {
+        image = gifFile;
+      });
+    } else {
+      final imageAux = await ImagePicker().pickImage(source: source);
+      if (imageAux == null) return;
+      final imageTemporary = File(imageAux.path);
+      setState(() {
+        image = imageTemporary;
+      });
+    }
+  }
+
+  Future<File> _downloadGif(String url) async {
+    final appDir = await getApplicationDocumentsDirectory();
+    final fileName = url.split('/').last;
+    final savePath = '${appDir.path}/$fileName';
+
+    try {
+      await Dio().download(url, savePath);
+      return File(savePath);
+    } catch (e) {
+      print("Erro ao baixar o GIF: $e");
+      throw Exception("Erro ao baixar o GIF");
+    }
   }
 
   @override
@@ -67,35 +107,10 @@ class _InputPostDialogState extends State<InputPostDialog> {
             ),
           ),
           const Gap(10),
-          image == null
-              ? Container(
-                  width: 60,
-                  height: 60,
-                  decoration: BoxDecoration(
-                    border: Border.all(color: AppColors.white),
-                    borderRadius: BorderRadius.circular(10),
-                  ),
-                  alignment: Alignment.center,
-                  child: IconButton(
-                    onPressed: () {
-                      showDialog(
-                        context: context,
-                        builder: (context) => GalleryOrCameraCard(
-                          onChoose: selectImage,
-                        ),
-                      );
-                    },
-                    icon: const Icon(
-                      Icons.image_search_rounded,
-                      color: AppColors.white,
-                    ),
-                  ),
-                )
-              : Row(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.center,
-                  children: [
-                    Container(
+          Row(
+            children: [
+              image == null
+                  ? Container(
                       width: 60,
                       height: 60,
                       decoration: BoxDecoration(
@@ -103,25 +118,56 @@ class _InputPostDialogState extends State<InputPostDialog> {
                         borderRadius: BorderRadius.circular(10),
                       ),
                       alignment: Alignment.center,
-                      padding: const EdgeInsets.all(5),
-                      child: Image.file(
-                        fit: BoxFit.cover,
-                        image!,
+                      child: IconButton(
+                        onPressed: () {
+                          showDialog(
+                            context: context,
+                            builder: (context) => GalleryOrCameraCard(
+                              onChoose: selectImage,
+                              isGif: true,
+                            ),
+                          );
+                        },
+                        icon: const Icon(
+                          Icons.image_search_rounded,
+                          color: AppColors.white,
+                        ),
                       ),
+                    )
+                  : Row(
+                      mainAxisSize: MainAxisSize.min,
+                      crossAxisAlignment: CrossAxisAlignment.center,
+                      children: [
+                        Container(
+                          width: 60,
+                          height: 60,
+                          decoration: BoxDecoration(
+                            border: Border.all(color: AppColors.white),
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                          alignment: Alignment.center,
+                          padding: const EdgeInsets.all(5),
+                          child: Image.file(
+                            fit: BoxFit.cover,
+                            image!,
+                          ),
+                        ),
+                        IconButton(
+                          onPressed: () {
+                            setState(() {
+                              image = null;
+                            });
+                          },
+                          icon: const Icon(
+                            Icons.cancel,
+                            color: AppColors.white,
+                          ),
+                        ),
+                      ],
                     ),
-                    IconButton(
-                      onPressed: () {
-                        setState(() {
-                          image = null;
-                        });
-                      },
-                      icon: const Icon(
-                        Icons.cancel,
-                        color: AppColors.white,
-                      ),
-                    ),
-                  ],
-                ),
+              const Gap(10),
+            ],
+          ),
         ],
       ),
       actionsOverflowDirection: VerticalDirection.down,

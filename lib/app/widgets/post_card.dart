@@ -1,6 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:gap/gap.dart';
+import 'package:like_button/like_button.dart';
 import 'package:provider/provider.dart';
 import 'package:twitter/app/controllers/database_controller.dart';
 import 'package:twitter/app/core/app_colors.dart';
@@ -26,8 +27,15 @@ UserProfile skeletonUserProfile = UserProfile(
 );
 
 class PostCard extends StatefulWidget {
-  const PostCard({super.key, required this.post});
+  const PostCard({
+    super.key,
+    required this.post,
+    this.isClickble = true,
+    this.isOnPage = false,
+  });
   final Post post;
+  final bool isClickble;
+  final bool isOnPage;
   @override
   State<PostCard> createState() => _PostCardState();
 }
@@ -79,19 +87,24 @@ class _PostCardState extends State<PostCard> {
                       flex: 6,
                       child: ListTile(
                         onTap: () {
-                          Navigator.push(
-                            context,
-                            PageRouteBuilder(
-                              pageBuilder: (context, animation1, animation2) =>
-                                  PostPage(
-                                post: widget.post,
+                          if (widget.isClickble) {
+                            Navigator.push(
+                              context,
+                              PageRouteBuilder(
+                                pageBuilder:
+                                    (context, animation1, animation2) =>
+                                        PostPage(
+                                  post: widget.post,
+                                ),
+                                transitionDuration:
+                                    Duration.zero, // Duração da animação
+                                reverseTransitionDuration: Duration
+                                    .zero, // Duração da animação ao voltar
                               ),
-                              transitionDuration:
-                                  Duration.zero, // Duração da animação
-                              reverseTransitionDuration: Duration
-                                  .zero, // Duração da animação ao voltar
-                            ),
-                          );
+                            );
+                          } else {
+                            return;
+                          }
                         },
                         contentPadding: const EdgeInsets.all(0),
                         title: Row(
@@ -171,7 +184,7 @@ class _PostCardState extends State<PostCard> {
                                       },
                                       child: Container(
                                         constraints: const BoxConstraints(
-                                          maxHeight: 160,
+                                          maxHeight: 155,
                                           maxWidth: 180,
                                         ),
                                         child: Image.network(
@@ -241,34 +254,53 @@ class _PostCardState extends State<PostCard> {
                                 ),
                                 const Gap(20),
                                 //Likes
-                                Row(
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    GestureDetector(
-                                      onTap: () async {
-                                        await databaseController.likePost(
-                                          widget.post.id,
-                                        );
-                                      },
-                                      child: likedByCurrentUser
-                                          ? const Icon(
-                                              Icons.favorite,
-                                              color: Colors.red,
-                                            )
-                                          : const Icon(
-                                              Icons.favorite,
-                                              color: AppColors.lightGrey,
-                                            ),
-                                    ),
-                                    const Gap(5),
-                                    Text(
-                                      likes.toString(),
+                                LikeButton(
+                                  size: 20,
+                                  circleColor: const CircleColor(
+                                    start: AppColors.lightGrey,
+                                    end: AppColors.lightGrey,
+                                  ),
+                                  bubblesColor: const BubblesColor(
+                                    dotPrimaryColor: AppColors.lightGrey,
+                                    dotSecondaryColor: AppColors.lightGrey,
+                                  ),
+                                  likeBuilder: (bool isLiked) {
+                                    return Icon(
+                                      isLiked
+                                          ? Icons.favorite_rounded
+                                          : Icons.favorite_border_rounded,
+                                      color: isLiked
+                                          ? Colors.red
+                                          : AppColors.lightGrey,
+                                    );
+                                  },
+                                  onTap: (bool isLiked) async {
+                                    await databaseController.likePost(
+                                      widget.post.id,
+                                    );
+
+                                    return !isLiked;
+                                  },
+                                  isLiked: likedByCurrentUser,
+                                  likeCount: likes,
+                                  likeCountPadding: const EdgeInsets.only(
+                                    left: 10,
+                                    top: 5,
+                                  ),
+                                  countPostion: CountPostion.right,
+                                  padding: EdgeInsets.only(
+                                    bottom: 5,
+                                  ),
+                                  countBuilder:
+                                      (int? count, bool isLiked, String text) {
+                                    return Text(
+                                      text,
                                       style: const TextStyle(
                                         color: AppColors.lightGrey,
                                         fontWeight: FontWeight.w500,
                                       ),
-                                    ),
-                                  ],
+                                    );
+                                  },
                                 ),
                               ],
                             ),
@@ -297,8 +329,14 @@ class _PostCardState extends State<PostCard> {
                                       ),
                                     ),
                                     onTap: () async {
-                                      await databaseController
-                                          .deletePost(widget.post.id);
+                                      if (widget.isOnPage) {
+                                        Navigator.pop(context);
+                                        await databaseController
+                                            .deletePost(widget.post.id);
+                                      } else {
+                                        await databaseController
+                                            .deletePost(widget.post.id);
+                                      }
                                     },
                                   ),
                                 ];

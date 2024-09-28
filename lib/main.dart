@@ -36,6 +36,7 @@ class MyApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return MaterialApp(
       title: 'Flutter Demo',
+      debugShowCheckedModeBanner: false,
       theme: ThemeData(fontFamily: 'SF Pro'),
       home: SharedPfService.prefs.getBool(SharedKeys.showWelcome) == null
           ? const Welcome()

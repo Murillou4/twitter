@@ -48,6 +48,11 @@ dependencies:
   auto_size_text: ^3.0.0
   firebase_messaging: ^15.1.2
   photo_view: ^0.15.0
+  like_button: ^2.0.5
+  giphy_picker: ^3.0.2
+  video_player: ^2.9.1
+  dio: ^5.7.0
+  path_provider: ^2.1.4
 flutter_native_splash:
   color: "#1da1f2"
   image: assets/images/app_icon.png

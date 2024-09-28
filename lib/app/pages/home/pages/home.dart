@@ -2,11 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:twitter/app/controllers/database_controller.dart';
 import 'package:twitter/app/core/app_colors.dart';
-import 'package:twitter/app/models/post.dart';
-import 'package:twitter/app/pages/auth/services/auth_service.dart';
-import 'package:twitter/app/widgets/input_dialog.dart';
+
 import 'package:twitter/app/widgets/input_post_dialog.dart';
-import 'package:twitter/app/widgets/my_button.dart';
 import 'package:twitter/app/widgets/my_drawer.dart';
 import 'package:twitter/app/widgets/post_card.dart';
 
@@ -18,7 +15,6 @@ class Home extends StatefulWidget {
 }
 
 class _HomeState extends State<Home> {
-  final _auth = AuthService();
   late final listeningController = Provider.of<DatabaseController>(context);
   late final databaseController =
       Provider.of<DatabaseController>(context, listen: false);
@@ -26,14 +22,17 @@ class _HomeState extends State<Home> {
   ScrollController scrollController = ScrollController();
   @override
   void initState() {
-    // TODO: implement initState
     super.initState();
-    databaseController.init();
+    initData();
   }
-  
+
+  Future<void> initData() async {
+    await databaseController.init();
+  }
+
   @override
   Widget build(BuildContext context) {
-    List<Post> posts = databaseController.posts;
+    final posts = listeningController.posts;
     return DefaultTabController(
       length: 2,
       initialIndex: 0,
@@ -94,13 +93,11 @@ class _HomeState extends State<Home> {
                     ),
                   )
                 : RefreshIndicator(
-                    onRefresh: databaseController.init,
+                    onRefresh: () async {
+                      await databaseController.init();
+                    },
                     child: ListView.separated(
                       key: const PageStorageKey<String>('forYouList'),
-                      addAutomaticKeepAlives: true,
-                      addSemanticIndexes: true,
-                      addRepaintBoundaries: true,
-                      cacheExtent: 100,
                       shrinkWrap: true,
                       controller: scrollController,
                       itemBuilder: (context, index) {
@@ -153,7 +150,7 @@ class _HomeState extends State<Home> {
               barrierDismissible: false,
               context: context,
               builder: (context) {
-                return InputPostDialog();
+                return const InputPostDialog();
               },
             );
           },

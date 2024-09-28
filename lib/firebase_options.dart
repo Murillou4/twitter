@@ -65,4 +65,5 @@ class DefaultFirebaseOptions {
     storageBucket: 'twitter-ed33c.appspot.com',
     iosBundleId: 'com.example.twitter',
   );
+
 }

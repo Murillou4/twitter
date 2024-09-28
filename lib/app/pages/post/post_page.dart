@@ -44,7 +44,11 @@ class _PostPageState extends State<PostPage> {
         mainAxisAlignment: MainAxisAlignment.start,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          PostCard(post: widget.post),
+          PostCard(
+            post: widget.post,
+            isClickble: false,
+            isOnPage: true,
+          ),
           const Gap(15),
           const Padding(
             padding: EdgeInsets.only(
@@ -72,18 +76,20 @@ class _PostPageState extends State<PostPage> {
                     ),
                   ),
                 )
-              : ListView.separated(
-                  shrinkWrap: true,
-                  itemBuilder: (context, index) {
-                    return CommentCard(
-                      comment: comments[index],
-                    );
-                  },
-                  separatorBuilder: (context, index) => const Divider(
-                    color: AppColors.lightGrey,
-                    thickness: 0.5,
+              : Flexible(
+                  child: ListView.separated(
+                    shrinkWrap: true,
+                    itemBuilder: (context, index) {
+                      return CommentCard(
+                        comment: comments[index],
+                      );
+                    },
+                    separatorBuilder: (context, index) => const Divider(
+                      color: AppColors.lightGrey,
+                      thickness: 0.5,
+                    ),
+                    itemCount: comments.length,
                   ),
-                  itemCount: comments.length,
                 )
         ],
       ),

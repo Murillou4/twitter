@@ -1,0 +1,1 @@
+enum VideoOrGif { video, gif }
