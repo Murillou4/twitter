@@ -42,7 +42,7 @@ class PostCard extends StatefulWidget {
 
 class _PostCardState extends State<PostCard> {
   final _auth = AuthService();
-  late final listeningController = Provider.of<DatabaseController>(context);
+
   late final databaseController =
       Provider.of<DatabaseController>(context, listen: false);
 
@@ -212,20 +212,43 @@ class _PostCardState extends State<PostCard> {
                                             controller: newCommentController,
                                             hintText: 'Seu comentário aqui',
                                             onTapText: 'Comentar',
-                                            onTap: () {
+                                            onTap: () async {
                                               if (newCommentController
                                                   .text.isEmpty) {
                                                 print('Comentário vazio');
                                                 return;
                                               }
 
-                                              databaseController.addNewComment(
-                                                  postId: widget.post.id,
-                                                  text: newCommentController
-                                                      .text);
-
+                                              await databaseController
+                                                  .addNewComment(
+                                                      postId: widget.post.id,
+                                                      text: newCommentController
+                                                          .text);
                                               newCommentController.clear();
-                                              Navigator.pop(context);
+                                              context.mounted
+                                                  ? Navigator.pop(context)
+                                                  : null;
+                                              if (widget.isClickble) {
+                                                context.mounted
+                                                    ? Navigator.push(
+                                                        context,
+                                                        PageRouteBuilder(
+                                                          pageBuilder: (context,
+                                                                  animation1,
+                                                                  animation2) =>
+                                                              PostPage(
+                                                            post: widget.post,
+                                                          ),
+                                                          transitionDuration:
+                                                              Duration
+                                                                  .zero, // Duração da animação
+                                                          reverseTransitionDuration:
+                                                              Duration
+                                                                  .zero, // Duração da animação ao voltar
+                                                        ),
+                                                      )
+                                                    : null;
+                                              }
                                             },
                                           ),
                                         );
@@ -236,20 +259,16 @@ class _PostCardState extends State<PostCard> {
                                       ),
                                     ),
                                     const Gap(5),
-                                    Text(
-                                      databaseController.comments
-                                          .where(
-                                            (element) =>
-                                                element.postId ==
-                                                widget.post.id,
-                                          )
-                                          .length
-                                          .toString(),
-                                      style: const TextStyle(
-                                        color: AppColors.lightGrey,
-                                        fontWeight: FontWeight.w500,
-                                      ),
-                                    ),
+                                    Consumer<DatabaseController>(builder:
+                                        (context, databaseController, _) {
+                                      return Text(
+                                        widget.post.comments.length.toString(),
+                                        style: const TextStyle(
+                                          color: AppColors.lightGrey,
+                                          fontWeight: FontWeight.w500,
+                                        ),
+                                      );
+                                    }),
                                   ],
                                 ),
                                 const Gap(20),
@@ -288,7 +307,7 @@ class _PostCardState extends State<PostCard> {
                                     top: 5,
                                   ),
                                   countPostion: CountPostion.right,
-                                  padding: EdgeInsets.only(
+                                  padding: const EdgeInsets.only(
                                     bottom: 5,
                                   ),
                                   countBuilder:

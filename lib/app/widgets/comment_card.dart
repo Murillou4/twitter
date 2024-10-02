@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:gap/gap.dart';
+import 'package:like_button/like_button.dart';
 import 'package:provider/provider.dart';
 import 'package:twitter/app/controllers/database_controller.dart';
 import 'package:twitter/app/core/app_colors.dart';
@@ -25,14 +26,16 @@ class _CommentCardState extends State<CommentCard> {
   @override
   Widget build(BuildContext context) {
     bool likedByCurrentUser =
-        listeningController.isCommentLikedByCurrentUser(widget.comment.id);
-    int likes = listeningController.getCommentsLikeCount(widget.comment.id);
+        databaseController.isCommentLikedByCurrentUser(widget.comment.id);
+    int likes = databaseController.getCommentsLikeCount(
+        widget.comment.id, widget.comment.postId);
     return Container(
       constraints: const BoxConstraints(
         maxHeight: 300,
       ),
       color: AppColors.background,
       child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         mainAxisSize: MainAxisSize.min,
         children: [
           FutureBuilder(
@@ -108,35 +111,37 @@ class _CommentCardState extends State<CommentCard> {
                               ),
                             ),
                             const Gap(5),
-                            Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                GestureDetector(
-                                  onTap: () async {
-                                    await databaseController.likeComment(
-                                      postId: widget.comment.postId,
-                                      commentId: widget.comment.id,
-                                    );
-                                  },
-                                  child: likedByCurrentUser
-                                      ? const Icon(
-                                          Icons.favorite,
-                                          color: Colors.red,
-                                        )
-                                      : const Icon(
-                                          Icons.favorite,
-                                          color: AppColors.lightGrey,
-                                        ),
-                                ),
-                                const Gap(5),
-                                Text(
-                                  likes.toString(),
-                                  style: const TextStyle(
-                                    color: AppColors.lightGrey,
-                                    fontWeight: FontWeight.w500,
-                                  ),
-                                ),
-                              ],
+                            LikeButton(
+                              onTap: (isLiked) async {
+                                await databaseController.likeComment(
+                                  commentId: widget.comment.id,
+                                  postId: widget.comment.postId,
+                                );
+                                return !isLiked;
+                              },
+                              isLiked: likedByCurrentUser,
+                              size: 20,
+                              likeCount: likes,
+                              mainAxisAlignment: MainAxisAlignment.start,
+                              circleColor: const CircleColor(
+                                start: AppColors.lightGrey,
+                                end: AppColors.lightGrey,
+                              ),
+                              bubblesColor: const BubblesColor(
+                                dotPrimaryColor: AppColors.lightGrey,
+                                dotSecondaryColor: AppColors.lightGrey,
+                              ),
+                              likeBuilder: (bool isLiked) {
+                                return Icon(
+                                  likedByCurrentUser
+                                      ? Icons.favorite
+                                      : Icons.favorite_border,
+                                  color: likedByCurrentUser
+                                      ? Colors.red
+                                      : AppColors.lightGrey,
+                                  size: 20,
+                                );
+                              },
                             ),
                           ],
                         ),

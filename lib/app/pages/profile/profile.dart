@@ -121,6 +121,8 @@ class _ProfileState extends State<Profile> {
         listeningController.isFollowing(widget.user.uid);
     int followersCount = listeningController.getFollowersCount(widget.user.uid);
     int followingCount = listeningController.getFollowingCount(widget.user.uid);
+    bool isBlockedByCurrentUser =
+        listeningController.isUserBlockedByCurrentUser(widget.user.uid);
     return Consumer<DatabaseController>(builder: (context, value, child) {
       return Scaffold(
         backgroundColor: AppColors.background,
@@ -239,38 +241,73 @@ class _ProfileState extends State<Profile> {
                                   },
                                   width: 130,
                                 ),
-                          MyButton(
-                            buttonColor: AppColors.grey,
-                            textColor: AppColors.white,
-                            text: 'Bloquear',
-                            onTap: () async {
-                              bool confirmation = await showConfirmationBox(
-                                context: context,
-                                title: 'Deseja bloquear ${widget.user.name}?',
-                                confirmationText: 'Bloquear',
-                              );
+                          !isBlockedByCurrentUser
+                              ? MyButton(
+                                  buttonColor: AppColors.grey,
+                                  textColor: AppColors.white,
+                                  text: 'Bloquear',
+                                  onTap: () async {
+                                    bool confirmation =
+                                        await showConfirmationBox(
+                                      context: context,
+                                      title:
+                                          'Deseja bloquear ${widget.user.name}?',
+                                      confirmationText: 'Bloquear',
+                                    );
 
-                              if (confirmation) {
-                                await databaseController
-                                    .blockUser(widget.user.uid);
-                                context.mounted
-                                    ? ScaffoldMessenger.of(context)
-                                        .showSnackBar(
-                                        const SnackBar(
-                                          content: Text(
-                                            'Usuário bloqueado com sucesso!',
-                                          ),
-                                          behavior: SnackBarBehavior.floating,
-                                        ),
-                                      )
-                                    : null;
-                                context.mounted
-                                    ? Navigator.of(context).pop()
-                                    : null;
-                              }
-                            },
-                            width: 100,
-                          ),
+                                    if (confirmation) {
+                                      await databaseController
+                                          .blockUser(widget.user.uid);
+                                      context.mounted
+                                          ? ScaffoldMessenger.of(context)
+                                              .showSnackBar(
+                                              const SnackBar(
+                                                content: Text(
+                                                  'Usuário bloqueado com sucesso!',
+                                                ),
+                                                behavior:
+                                                    SnackBarBehavior.floating,
+                                              ),
+                                            )
+                                          : null;
+                                      context.mounted
+                                          ? Navigator.of(context).pop()
+                                          : null;
+                                    }
+                                  },
+                                  width: 100,
+                                )
+                              : MyButton(
+                                  buttonColor: AppColors.grey,
+                                  textColor: AppColors.white,
+                                  text: 'Desbloquear',
+                                  onTap: () async {
+                                    bool confirmation =
+                                        await showConfirmationBox(
+                                      context: context,
+                                      title:
+                                          'Deseja desbloquear ${widget.user.name}?',
+                                      confirmationText: 'Desbloquear',
+                                    );
+
+                                    if (confirmation) {
+                                      await databaseController
+                                          .unblockUser(widget.user.uid);
+                                      context.mounted
+                                          ? ScaffoldMessenger.of(context)
+                                              .showSnackBar(
+                                              const SnackBar(
+                                                content: Text(
+                                                  'Usuário desbloqueado com sucesso!',
+                                                ),
+                                                behavior:
+                                                    SnackBarBehavior.floating,
+                                              ),
+                                            )
+                                          : null;
+                                    }
+                                  },
+                                ),
                         ],
                       )
                     : Container(),

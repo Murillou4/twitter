@@ -16,6 +16,8 @@ class DatabaseService {
   final _storage = FirebaseStorage.instance;
   final _messaging = FirebaseMessaging.instance;
 
+  // User info
+
   Future<void> saveUserInfoInFirebase(
       {required String name, required String email}) async {
     String uid = _auth.currentUser!.uid;
@@ -50,12 +52,6 @@ class DatabaseService {
       print(e);
       return [];
     }
-  }
-
-  noitfyLikeOnPost({required Post post}) async {
-    String uid = _auth.currentUser!.uid;
-    UserProfile? user = await getUserInfoFromFirebase(post.uid);
-    if (post.uid == uid || user == null) return;
   }
 
   Future<UserProfile?> getUserInfoFromFirebase(String uid) async {
@@ -120,13 +116,39 @@ class DatabaseService {
     }
   }
 
+  // Post
+
   Future<List<Post>> getAllPostsFromFirebase() async {
     try {
-      QuerySnapshot querySnapshot = await _db
+      // Busca os posts
+      QuerySnapshot querySnapshotPosts = await _db
           .collection('Posts')
           .orderBy('timestamp', descending: true)
           .get();
-      return querySnapshot.docs.map((doc) => Post.fromDocument(doc)).toList();
+
+      // Mapeia os documentos para a classe Post e obtém os comentários de cada post
+      List<Post> posts = [];
+
+      for (var doc in querySnapshotPosts.docs) {
+        Post post = Post.fromDocument(doc);
+
+        // Busca os comentários na subcoleção "Comments" de cada post
+        QuerySnapshot querySnapshotComments = await _db
+            .collection('Posts')
+            .doc(post.id)
+            .collection('Comments')
+            .orderBy('timestamp', descending: true)
+            .get();
+
+        // Adiciona os comentários ao post
+        post.comments = querySnapshotComments.docs
+            .map((commentDoc) => Comment.fromDocument(commentDoc))
+            .toList();
+
+        posts.add(post);
+      }
+
+      return posts;
     } catch (e) {
       print(e);
       return [];
@@ -135,12 +157,34 @@ class DatabaseService {
 
   Future<List<Post>> getIndividualUserPostsFromFirebase(String uid) async {
     try {
-      QuerySnapshot querySnapshot = await _db
+      QuerySnapshot querySnapshotPosts = await _db
           .collection('Posts')
           .where('uid', isEqualTo: uid)
           .orderBy('timestamp', descending: true)
           .get();
-      return querySnapshot.docs.map((doc) => Post.fromDocument(doc)).toList();
+      // Mapeia os documentos para a classe Post e obtém os comentários de cada post
+      List<Post> posts = [];
+
+      for (var doc in querySnapshotPosts.docs) {
+        Post post = Post.fromDocument(doc);
+
+        // Busca os comentários na subcoleção "Comments" de cada post
+        QuerySnapshot querySnapshotComments = await _db
+            .collection('Posts')
+            .doc(post.id)
+            .collection('Comments')
+            .orderBy('timestamp', descending: true)
+            .get();
+
+        // Adiciona os comentários ao post
+        post.comments = querySnapshotComments.docs
+            .map((commentDoc) => Comment.fromDocument(commentDoc))
+            .toList();
+
+        posts.add(post);
+      }
+
+      return posts;
     } catch (e) {
       print(e);
       return [];
@@ -152,29 +196,6 @@ class DatabaseService {
       await _db.collection('Posts').doc(postId).delete();
     } catch (e) {
       print(e);
-    }
-  }
-
-  Future<List<Comment>> getPostsCommentsFromFirebase() async {
-    try {
-      //Dentro da coleção Posts cada post tem uma coleção de Comments
-      QuerySnapshot querySnapshot = await _db.collection('Posts').get();
-      List<Comment> comments = [];
-      for (var element in querySnapshot.docs) {
-        QuerySnapshot commentSnapshot = await _db
-            .collection('Posts')
-            .doc(element.id)
-            .collection('Comments')
-            .get();
-        for (var comment in commentSnapshot.docs) {
-          comments.add(Comment.fromDocument(comment));
-        }
-      }
-
-      return comments;
-    } catch (e) {
-      print(e);
-      return [];
     }
   }
 

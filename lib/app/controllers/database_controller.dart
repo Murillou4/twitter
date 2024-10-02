@@ -1,5 +1,6 @@
 import 'dart:io';
 
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:giphy_picker/giphy_picker.dart';
 import 'package:image_picker/image_picker.dart';
@@ -17,9 +18,6 @@ class DatabaseController extends ChangeNotifier {
   List<Post> posts = [];
   Map<String, int> postsLikeCount = {};
   List<String> userLikedPosts = [];
-  List<Comment> comments = [];
-  Map<String, int> commentsLikeCount = {};
-  List<String> userLikedComments = [];
   List<UserProfile> blockedUsers = [];
   final Map<String, List<String>> followers = {};
   final Map<String, List<String>> following = {};
@@ -31,9 +29,7 @@ class DatabaseController extends ChangeNotifier {
     await initLoggedUserInfo();
     await initBlockedUsers();
     await initPosts();
-    await initComments();
     await initPostsLikeMap();
-    await initCommentsLikeMap();
     await initUserFollowers(_auth.getCurrentUserUid());
     await initUserFollowing(_auth.getCurrentUserUid());
   }
@@ -43,9 +39,6 @@ class DatabaseController extends ChangeNotifier {
     posts = [];
     postsLikeCount = {};
     userLikedPosts = [];
-    comments = [];
-    commentsLikeCount = {};
-    userLikedComments = [];
   }
 
   Future<List<Post>> getFollowingPosts() async {
@@ -65,6 +58,7 @@ class DatabaseController extends ChangeNotifier {
     final blockedUsersIds = await _db.getBlockedUsersFromFirebase();
 
     posts = posts.where((post) => !blockedUsersIds.contains(post.uid)).toList();
+
     notifyListeners();
   }
 
@@ -81,11 +75,6 @@ class DatabaseController extends ChangeNotifier {
     notifyListeners();
   }
 
-  Future<void> initComments() async {
-    comments = await getPostsComments();
-    notifyListeners();
-  }
-
   Future<void> initPostsLikeMap() async {
     final uid = _auth.getCurrentUserUid();
     for (var post in posts) {
@@ -93,17 +82,6 @@ class DatabaseController extends ChangeNotifier {
 
       if (post.likedBy.contains(uid)) {
         userLikedPosts.add(post.id);
-      }
-    }
-  }
-
-  Future<void> initCommentsLikeMap() async {
-    final uid = _auth.getCurrentUserUid();
-    for (var comment in comments) {
-      commentsLikeCount[comment.id] = comment.likeCount;
-
-      if (comment.likedBy.contains(uid)) {
-        userLikedComments.add(comment.id);
       }
     }
   }
@@ -138,26 +116,40 @@ class DatabaseController extends ChangeNotifier {
   Future<void> addNewComment(
       {required String postId, required String text}) async {
     Comment? comment = await _db.addCommentInFirebase(postId, text);
-    comments.insert(0, comment!);
+    posts
+        .firstWhere((element) => element.id == postId)
+        .comments
+        .insert(0, comment!);
     notifyListeners();
   }
 
   Future<void> deleteComment(String commentId, String postId) async {
-    await _db.deleteCommentInFirebase(commentId: commentId, postId: postId);
-    comments.removeWhere((element) => element.id == commentId);
+    posts.firstWhere((element) => element.id == postId).comments.removeWhere(
+          (element) => element.id == commentId,
+        );
     notifyListeners();
+    await _db.deleteCommentInFirebase(commentId: commentId, postId: postId);
   }
 
+  bool isUserBlockedByCurrentUser(String uid) =>
+      blockedUsers.any((element) => element.uid == uid);
   bool isPostLikedByCurrentUser(String postId) =>
       userLikedPosts.contains(postId);
 
   int getPostsLikeCount(String postId) => postsLikeCount[postId] ?? 0;
 
-  bool isCommentLikedByCurrentUser(String commentId) =>
-      userLikedComments.contains(commentId);
+  bool isCommentLikedByCurrentUser(String commentId) {
+    for (var post in posts) {
+      if (post.comments.any((element) => element.id == commentId)) {
+        return post.comments
+            .firstWhere((element) => element.id == commentId)
+            .likedBy
+            .contains(_auth.getCurrentUserUid());
+      }
+    }
 
-  int getCommentsLikeCount(String commentId) =>
-      commentsLikeCount[commentId] ?? 0;
+    return false;
+  }
 
   int getFollowersCount(String uid) => followersCount[uid] ?? 0;
 
@@ -236,7 +228,9 @@ class DatabaseController extends ChangeNotifier {
 
       await initUserFollowers(currentUserUid);
       await initUserFollowing(currentUserUid);
+      notifyListeners();
     } catch (e) {
+      print(e);
       followers[targetUid]?.add(currentUserUid);
       followersCount[targetUid] = (followersCount[targetUid] ?? 0) + 1;
 
@@ -273,46 +267,77 @@ class DatabaseController extends ChangeNotifier {
     }
   }
 
+  int getCommentsLikeCount(String commentId, String postId) {
+    return posts.firstWhere((post) => post.id == postId).comments.firstWhere(
+      (comment) => comment.id == commentId,
+      orElse: () {
+        return Comment(
+          id: commentId,
+          likedBy: [],
+          likeCount: 0,
+          message: '',
+          timestamp: Timestamp.now(),
+          uid: '',
+          postId: postId,
+        );
+      },
+    ).likeCount;
+  }
+
   Future<void> likeComment(
       {required String postId, required String commentId}) async {
-    final userLikedCommentsOriginal = userLikedComments;
-    final commentsLikeCountOriginal = commentsLikeCount;
-
-    if (userLikedComments.contains(commentId)) {
-      userLikedComments.remove(commentId);
-      commentsLikeCount[commentId] =
-          (commentsLikeCountOriginal[commentId] ?? 0) - 1;
+    final uid = _auth.getCurrentUserUid();
+    Comment comment =
+        posts.firstWhere((post) => post.id == postId).comments.firstWhere(
+              (comment) => comment.id == commentId,
+            );
+    if (comment.likedBy.contains(uid)) {
+      // Remove like
+      posts
+          .firstWhere((post) => post.id == postId)
+          .comments
+          .firstWhere((comment) => comment.id == commentId)
+          .likedBy
+          .remove(uid);
+      // Decrement like count
+      posts
+          .firstWhere((post) => post.id == postId)
+          .comments
+          .firstWhere((comment) => comment.id == commentId)
+          .likeCount--;
     } else {
-      userLikedComments.add(commentId);
-      commentsLikeCount[commentId] =
-          (commentsLikeCountOriginal[commentId] ?? 0) + 1;
-    }
+      // Add like
+      posts
+          .firstWhere((post) => post.id == postId)
+          .comments
+          .firstWhere((comment) => comment.id == commentId)
+          .likedBy
+          .add(uid);
 
+      // Increment like count
+      posts
+          .firstWhere((post) => post.id == postId)
+          .comments
+          .firstWhere((comment) => comment.id == commentId)
+          .likeCount++;
+    }
     notifyListeners();
 
     try {
       await _db.likeCommentInFirebase(postId, commentId);
     } catch (e) {
-      userLikedComments = userLikedCommentsOriginal;
-      commentsLikeCount = commentsLikeCountOriginal;
-      notifyListeners();
+      print(e);
     }
-
-    notifyListeners();
   }
 
   Future<void> deletePost(String postId) async {
-    await _db.deletePostInFirebase(postId);
-    posts = await getPosts();
+    posts.removeWhere((post) => post.id == postId);
     notifyListeners();
+    await _db.deletePostInFirebase(postId);
   }
 
   Future<List<Post>> getPosts() async {
     return await _db.getAllPostsFromFirebase();
-  }
-
-  Future<List<Comment>> getPostsComments() async {
-    return await _db.getPostsCommentsFromFirebase();
   }
 
   Future<List<Post>> getUserPosts(String uid) async {
@@ -343,7 +368,7 @@ class DatabaseController extends ChangeNotifier {
     notifyListeners();
   }
 
-  Future<void> updateProfileImage(BuildContext context ,ImageSource source,
+  Future<void> updateProfileImage(BuildContext context, ImageSource source,
       [bool isGif = false]) async {
     final uid = _auth.getCurrentUserUid();
     if (isGif) {

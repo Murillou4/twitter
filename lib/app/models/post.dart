@@ -9,9 +9,10 @@ class Post {
   final String username;
   final String message;
   final Timestamp timestamp;
-  final String postImage ;
+  final String postImage;
   int likeCount;
   final List<String> likedBy;
+  List<Comment> comments = [];
 
   Post({
     required this.id,
@@ -23,6 +24,7 @@ class Post {
     this.likeCount = 0,
     this.likedBy = const [],
     this.postImage = '',
+    this.comments = const [],
   });
 
   factory Post.fromDocument(DocumentSnapshot doc) {

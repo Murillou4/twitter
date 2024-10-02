@@ -24,9 +24,6 @@ class _PostPageState extends State<PostPage> {
   late final listeningController = Provider.of<DatabaseController>(context);
   @override
   Widget build(BuildContext context) {
-    List<Comment> comments = listeningController.comments
-        .where((element) => element.postId == widget.post.id)
-        .toList();
     return Scaffold(
       backgroundColor: AppColors.background,
       appBar: AppBar(
@@ -66,7 +63,7 @@ class _PostPageState extends State<PostPage> {
             color: AppColors.lightGrey,
             thickness: 0.5,
           ),
-          comments.isEmpty
+          widget.post.comments.isEmpty
               ? const Center(
                   child: Text(
                     'Nenhum comentário',
@@ -77,19 +74,22 @@ class _PostPageState extends State<PostPage> {
                   ),
                 )
               : Flexible(
-                  child: ListView.separated(
-                    shrinkWrap: true,
-                    itemBuilder: (context, index) {
-                      return CommentCard(
-                        comment: comments[index],
-                      );
-                    },
-                    separatorBuilder: (context, index) => const Divider(
-                      color: AppColors.lightGrey,
-                      thickness: 0.5,
-                    ),
-                    itemCount: comments.length,
-                  ),
+                  child: Consumer<DatabaseController>(
+                      builder: (context, databaseController, child) {
+                    return ListView.separated(
+                      shrinkWrap: true,
+                      itemBuilder: (context, index) {
+                        return CommentCard(
+                          comment: widget.post.comments[index],
+                        );
+                      },
+                      separatorBuilder: (context, index) => const Divider(
+                        color: AppColors.lightGrey,
+                        thickness: 0.5,
+                      ),
+                      itemCount: widget.post.comments.length,
+                    );
+                  }),
                 )
         ],
       ),
