@@ -1,11 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:twitter/app/controllers/database_controller.dart';
-import 'package:twitter/app/pages/welcome/welcome.dart';
-import 'package:twitter/app/services/shared_pf_service.dart';
+import 'package:twitter/app/twitter/providers/audio_provider.dart';
+import 'package:twitter/app/twitter/providers/database_provider.dart';
+import 'package:twitter/app/twitter/pages/welcome/welcome.dart';
+
 import 'package:twitter/app/core/shared_keys.dart';
-import 'package:twitter/app/pages/auth/services/auth_gate.dart';
+import 'package:twitter/app/twitter/pages/auth/services/auth_gate.dart';
 import 'package:firebase_core/firebase_core.dart';
+import 'package:twitter/app/twitter/services/shared_pf_service.dart';
 import 'firebase_options.dart';
 
 Future<void> main() async {
@@ -20,8 +22,15 @@ Future<void> main() async {
   runApp(
     MultiProvider(
       providers: [
-        ChangeNotifierProvider(
-          create: (context) => DatabaseController(),
+        MultiProvider(
+          providers: [
+            ChangeNotifierProvider(
+              create: (context) => DatabaseProvider(),
+            ),
+            ChangeNotifierProvider(
+              create: (context) => AudioProvider(),
+            ),
+          ],
         ),
       ],
       child: const MyApp(),
