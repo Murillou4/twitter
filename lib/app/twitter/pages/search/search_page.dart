@@ -15,6 +15,8 @@ class SearchPage extends StatefulWidget {
 
 class _SearchPageState extends State<SearchPage> {
   final searchController = TextEditingController();
+  final FocusNode focusNode = FocusNode();
+
   @override
   Widget build(BuildContext context) {
     final listeningProvider = Provider.of<DatabaseProvider>(context);
@@ -25,15 +27,28 @@ class _SearchPageState extends State<SearchPage> {
         iconTheme: const IconThemeData(
           color: AppColors.white,
         ),
+        leading: GestureDetector(
+          onTap: () {
+            searchController.clear();
+            listeningProvider.searchResults.clear();
+            Navigator.pop(context);
+          },
+          child: Icon(
+            Icons.arrow_back,
+          ),
+        ),
         title: TextField(
           controller: searchController,
+          autofocus: true,
+          focusNode: focusNode,
+          onTapOutside: (event) {
+            focusNode.unfocus();
+          },
           style: const TextStyle(
             color: AppColors.white,
           ),
           onChanged: (value) async {
-            if (value.isNotEmpty) {
-              await listeningProvider.searchUsers(value);
-            }
+            await listeningProvider.searchUsers(value);
           },
           decoration: const InputDecoration(
             hintText: 'Pesquisar usuários',

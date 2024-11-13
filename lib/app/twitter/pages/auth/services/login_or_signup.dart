@@ -6,8 +6,12 @@ class LoginOrSignup extends StatefulWidget {
   LoginOrSignup({
     super.key,
     this.showLoginPage = true,
+    required this.signup,
+    required this.login,
   });
   bool showLoginPage;
+  final VoidCallback signup;
+  final VoidCallback login;
   @override
   State<LoginOrSignup> createState() => _LoginOrSignupState();
 }
@@ -25,9 +29,9 @@ class _LoginOrSignupState extends State<LoginOrSignup> {
   @override
   Widget build(BuildContext context) {
     if (widget.showLoginPage) {
-      return Login(togglePages: togglePages);
+      return Login(togglePages: togglePages, login: widget.login);
     } else {
-      return Signup(togglePages: togglePages);
+      return Signup(togglePages: togglePages, signup: widget.signup);
     }
   }
 }

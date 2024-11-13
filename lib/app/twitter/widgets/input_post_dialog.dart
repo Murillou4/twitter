@@ -7,6 +7,7 @@ import 'package:provider/provider.dart';
 import 'package:twitter/app/twitter/providers/audio_provider.dart';
 import 'package:twitter/app/twitter/providers/database_provider.dart';
 import 'package:twitter/app/core/app_colors.dart';
+import 'package:twitter/app/twitter/services/database_service.dart';
 import 'package:twitter/app/twitter/widgets/audio_player_widget.dart';
 import 'package:twitter/app/twitter/widgets/audio_recorder_widget.dart';
 import 'package:twitter/app/twitter/widgets/gallery_or_camera_card.dart';
@@ -27,12 +28,11 @@ class InputPostDialog extends StatefulWidget {
 class _InputPostDialogState extends State<InputPostDialog> {
   File? image;
   TextEditingController postController = TextEditingController();
-  late final databaseProvider =
-      Provider.of<DatabaseProvider>(context, listen: false);
+  final _db = DatabaseService();
   late final audioProvider = Provider.of<AudioProvider>(context, listen: false);
 
-  Future<void> selectImage(BuildContext context, ImageSource source,
-      [bool isGif = false]) async {
+  Future<void> selectImage(ImageSource source, [bool isGif = false]) async {
+    showLoadingCircle(context);
     if (isGif) {
       final gif = await GiphyPicker.pickGif(
         context: context,
@@ -44,28 +44,39 @@ class _InputPostDialogState extends State<InputPostDialog> {
           );
         },
       );
-      if (gif == null) return;
+      if (gif == null) {
+        mounted ? hideLoadingCircle(context) : null;
+        return;
+      }
 
       // Baixa o GIF da URL e salva localmente
       final gifUrl = gif.images.original!.url;
+
       final gifFile = await _downloadGif(gifUrl!);
 
       setState(() {
         image = gifFile;
       });
+      mounted ? hideLoadingCircle(context) : null;
+      return;
     } else {
       try {
         final imagePicker = ImagePicker();
         final imageAux = await imagePicker.pickImage(
           source: source,
         );
-        if (imageAux == null) return;
+        if (imageAux == null) {
+          mounted ? hideLoadingCircle(context) : null;
+          return;
+        }
+
         final imageTemporary = File(imageAux.path);
         setState(() {
           image = imageTemporary;
         });
+        mounted ? hideLoadingCircle(context) : null;
       } catch (e) {
-        print(e);
+        mounted ? hideLoadingCircle(context) : null;
       }
     }
   }
@@ -131,11 +142,16 @@ class _InputPostDialogState extends State<InputPostDialog> {
                       ),
                       alignment: Alignment.center,
                       child: IconButton(
-                        onPressed: () {
-                          showDialog(
+                        onPressed: () async {
+                          await showDialog(
                             context: context,
-                            builder: (context) => GalleryOrCameraCard(
-                              onChoose: selectImage,
+                            builder: (cont) => GalleryOrCameraCard(
+                              onChoose: (imageSource, [isGif = false]) async {
+                                await selectImage(imageSource, isGif);
+                                context.mounted
+                                    ? Navigator.of(context).pop()
+                                    : null;
+                              },
                               isGif: true,
                             ),
                           );
@@ -214,8 +230,8 @@ class _InputPostDialogState extends State<InputPostDialog> {
               return;
             }
             showLoadingCircle(context);
-            await databaseProvider.addNewPost(
-              text: postController.text,
+            await _db.addPostInFirebase(
+              message: postController.text,
               image: image,
               audio: audioProvider.recordedAudioFile,
             );

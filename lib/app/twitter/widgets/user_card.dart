@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:twitter/app/core/app_colors.dart';
-import 'package:twitter/app/twitter/models/user.dart';
+import 'package:twitter/app/twitter/models/user_profile.dart';
 import 'package:twitter/app/twitter/pages/profile/profile.dart';
 
 class UserCard extends StatelessWidget {

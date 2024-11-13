@@ -2,20 +2,21 @@ import 'dart:async';
 import 'dart:io';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:firebase_storage/firebase_storage.dart';
+import 'package:flutter/foundation.dart';
 import 'package:twitter/app/twitter/models/chat.dart';
 import 'package:twitter/app/twitter/models/comment.dart';
 import 'package:twitter/app/twitter/models/message.dart';
 import 'package:twitter/app/twitter/models/post.dart';
-import 'package:twitter/app/twitter/models/user.dart';
+import 'package:twitter/app/twitter/models/user_profile.dart';
+import 'package:uuid/uuid.dart';
+import 'package:uuid/v4.dart';
 
 class DatabaseService {
   final _db = FirebaseFirestore.instance;
   final _auth = FirebaseAuth.instance;
   //gs://twitter-ed33c.appspot.com/profile_images
   final _storage = FirebaseStorage.instance;
-  final _messaging = FirebaseMessaging.instance;
 
   // User info
 
@@ -23,25 +24,47 @@ class DatabaseService {
       {required String name, required String email}) async {
     String uid = _auth.currentUser!.uid;
     String username = email.split('@')[0];
-    Timestamp timestamp = Timestamp.now();
-    String deviceToken = await _messaging.getToken() ?? '';
-    UserProfile user = UserProfile(
-      uid: uid,
-      name: name,
-      email: email,
-      username: username,
-      bio: '',
-      timestamp: timestamp,
-      deviceToken: deviceToken,
-    );
+    final timestamp = FieldValue.serverTimestamp();
 
-    final userMap = user.toMap();
+    final userMap = {
+      'uid': uid,
+      'name': name,
+      'email': email,
+      'username': username,
+      'bio': '',
+      'timestamp': timestamp,
+      'photoUrl':
+          'https://tanzolymp.com/images/default-non-user-no-photo-1.jpg',
+    };
 
     await _db.collection('Users').doc(uid).set(userMap);
   }
 
+  Future<bool> userAlreadyExistsInFirebase() async {
+    final uid = _auth.currentUser!.uid;
+    final snapshot =
+        await _db.collection('Users').where('uid', isEqualTo: uid).get();
+    return snapshot.docs.isNotEmpty;
+  }
+
   Future<void> deleteUserInfoInFirebase() async {
     String uid = _auth.currentUser!.uid;
+
+    // Primeiro deletar todas as relações e dados
+
+    //Unfollow all users
+    List<String> followingUids = await getFollowingUidsFromFirebase(uid);
+    for (var followingUid in followingUids) {
+      await unfollowUserInFirebase(followingUid);
+    }
+
+    //Remove user from following
+    List<String> followersUids = await getFollowersUidsFromFirebase(uid);
+
+    for (var followerUid in followersUids) {
+      await removeUserFromFollowing(followerUid, uid);
+    }
+
     //Delete user posts
     QuerySnapshot postsSnapshot =
         await _db.collection('Posts').where('uid', isEqualTo: uid).get();
@@ -59,10 +82,26 @@ class DatabaseService {
     }
 
     // Delete user profile picture
-    await deleteProfileImageInFirebase();
-
+    await deleteProfileImageInFirebase(uid);
     await _db.collection('Users').doc(uid).delete();
-    await _auth.currentUser!.delete();
+
+    // Por último, deletar a conta do Auth
+    try {
+      await _auth.currentUser!.delete();
+    } catch (e) {
+      throw 'Essa operação é sensível e precisa de uma autenticação recente';
+    }
+  }
+
+  Future<void> removeUserFromFollowing(
+      String sourceUid, String targetUid) async {
+    final docFollowingRef = await _db
+        .collection('Users')
+        .doc(sourceUid)
+        .collection('Following')
+        .where('uid', isEqualTo: targetUid)
+        .get();
+    await docFollowingRef.docs.first.reference.delete();
   }
 
   Future<List<UserProfile>> searchUsersInFirebase(String query) async {
@@ -108,8 +147,7 @@ class DatabaseService {
     }
   }
 
-  Future<void> deleteProfileImageInFirebase() async {
-    String uid = _auth.currentUser!.uid;
+  Future<void> deleteProfileImageInFirebase(String uid) async {
     try {
       ListResult listResult = await _storage.ref('profile_images').list();
       for (var item in listResult.items) {
@@ -127,7 +165,7 @@ class DatabaseService {
     String type = image.path.split('.').last;
     try {
       //Delete previous image from storage if exists
-      await deleteProfileImageInFirebase();
+      await deleteProfileImageInFirebase(uid);
       // Add image to storage and get url
       String photoUrl = await _storage
           .ref('profile_images/$uid.$type')
@@ -144,79 +182,6 @@ class DatabaseService {
 
   // Post
 
-  Future<List<Post>> getAllPostsFromFirebase() async {
-    try {
-      // Busca os posts
-      QuerySnapshot querySnapshotPosts = await _db
-          .collection('Posts')
-          .orderBy('timestamp', descending: true)
-          .get();
-
-      // Mapeia os documentos para a classe Post e obtém os comentários de cada post
-      List<Post> posts = [];
-
-      for (var doc in querySnapshotPosts.docs) {
-        Post post = Post.fromDocument(doc);
-
-        // Busca os comentários na subcoleção "Comments" de cada post
-        QuerySnapshot querySnapshotComments = await _db
-            .collection('Posts')
-            .doc(post.id)
-            .collection('Comments')
-            .orderBy('timestamp', descending: true)
-            .get();
-
-        // Adiciona os comentários ao post
-        post.comments = querySnapshotComments.docs
-            .map((commentDoc) => Comment.fromDocument(commentDoc))
-            .toList();
-
-        posts.add(post);
-      }
-
-      return posts;
-    } catch (e) {
-      print(e);
-      return [];
-    }
-  }
-
-  Future<List<Post>> getIndividualUserPostsFromFirebase(String uid) async {
-    try {
-      QuerySnapshot querySnapshotPosts = await _db
-          .collection('Posts')
-          .where('uid', isEqualTo: uid)
-          .orderBy('timestamp', descending: true)
-          .get();
-      // Mapeia os documentos para a classe Post e obtém os comentários de cada post
-      List<Post> posts = [];
-
-      for (var doc in querySnapshotPosts.docs) {
-        Post post = Post.fromDocument(doc);
-
-        // Busca os comentários na subcoleção "Comments" de cada post
-        QuerySnapshot querySnapshotComments = await _db
-            .collection('Posts')
-            .doc(post.id)
-            .collection('Comments')
-            .orderBy('timestamp', descending: true)
-            .get();
-
-        // Adiciona os comentários ao post
-        post.comments = querySnapshotComments.docs
-            .map((commentDoc) => Comment.fromDocument(commentDoc))
-            .toList();
-
-        posts.add(post);
-      }
-
-      return posts;
-    } catch (e) {
-      print(e);
-      return [];
-    }
-  }
-
   Future<void> deletePostInFirebase(String postId) async {
     try {
       await _db.collection('Posts').doc(postId).delete();
@@ -227,40 +192,46 @@ class DatabaseService {
     }
   }
 
-  Future<Comment?> addCommentInFirebase(String postId, String text) async {
+  Future<void> addCommentInFirebase(String postId, String text) async {
     String uid = _auth.currentUser!.uid;
     try {
-      Comment comment = Comment(
-        id: '',
-        postId: postId,
-        message: text,
-        uid: uid,
-        timestamp: Timestamp.now(),
-        likeCount: 0,
-        likedBy: [],
-      );
-      final data = await _db
-          .collection('Posts')
-          .doc(postId)
-          .collection('Comments')
-          .add(comment.toMap());
-      final doc = await data.get();
-      return Comment.fromDocument(doc);
+      // Primeiro, buscamos o documento do post
+      DocumentReference postRef = _db.collection('Posts').doc(postId);
+      DocumentSnapshot postDoc = await postRef.get();
+
+      // Obtemos a lista atual de comentários com o cast apropriado
+      List<dynamic> currentComments =
+          List.from((postDoc.data() as Map<String, dynamic>)['comments'] ?? []);
+
+      // Criamos o novo comentário com Timestamp.now()
+      final commentMap = {
+        'id': Uuid().v4(),
+        'postId': postId,
+        'message': text,
+        'uid': uid,
+        'timestamp': Timestamp.now(),
+        'likeCount': 0,
+        'likedBy': [],
+      };
+
+      // Adicionamos o novo comentário à lista
+      currentComments.add(commentMap);
+
+      // Atualizamos o documento com a nova lista de comentários
+      await postRef.update({
+        'comments': currentComments,
+      });
     } catch (e) {
       print(e);
     }
-    return null;
   }
 
   Future<void> deleteCommentInFirebase(
-      {required String commentId, required String postId}) async {
+      {required Comment comment, required String postId}) async {
     try {
-      await _db
-          .collection('Posts')
-          .doc(postId)
-          .collection('Comments')
-          .doc(commentId)
-          .delete();
+      await _db.collection('Posts').doc(postId).update({
+        'comments': FieldValue.arrayRemove([comment.toMap()])
+      });
     } catch (e) {
       print(e);
     }
@@ -268,35 +239,47 @@ class DatabaseService {
 
   Future<void> likeCommentInFirebase(String postId, String commentId) async {
     String uid = _auth.currentUser!.uid;
+
     try {
-      DocumentSnapshot commentDoc = await _db
-          .collection('Posts')
-          .doc(postId)
-          .collection('Comments')
-          .doc(commentId)
-          .get();
-      Comment comment = Comment.fromDocument(commentDoc);
-      if (comment.likedBy.contains(uid)) {
-        await _db
-            .collection('Posts')
-            .doc(postId)
-            .collection('Comments')
-            .doc(commentId)
-            .update({
-          'likeCount': comment.likeCount - 1,
-          'likedBy': FieldValue.arrayRemove([uid])
-        });
-      } else {
-        await _db
-            .collection('Posts')
-            .doc(postId)
-            .collection('Comments')
-            .doc(commentId)
-            .update({
-          'likeCount': comment.likeCount + 1,
-          'likedBy': FieldValue.arrayUnion([uid])
-        });
+      // Referência ao documento do post no Firestore
+      final postRef = _db.collection('Posts').doc(postId);
+
+      // Obtenha os dados atuais do post
+      final postSnapshot = await postRef.get();
+      if (!postSnapshot.exists) {
+        print('Post não encontrado');
+        return;
       }
+
+      // Converta a lista de comentários para uma lista mutável
+      List<Map<String, dynamic>> comments = List<Map<String, dynamic>>.from(
+          postSnapshot.data()?['comments'] ?? []);
+
+      // Encontre o comentário e atualize os campos `likeCount` e `likedBy`
+      for (var comment in comments) {
+        if (comment['id'] == commentId) {
+          List<dynamic> likedBy = List.from(comment['likedBy'] ?? []);
+
+          if (likedBy.contains(uid)) {
+            // Se já curtiu, faz "unlike"
+            comment['likeCount'] = (comment['likeCount'] ?? 0) - 1;
+            likedBy.remove(uid);
+          } else {
+            // Se ainda não curtiu, faz "like"
+            comment['likeCount'] = (comment['likeCount'] ?? 0) + 1;
+            likedBy.add(uid);
+          }
+
+          // Atualize o campo `likedBy` com a nova lista
+          comment['likedBy'] = likedBy;
+          break; // Saia do loop após encontrar o comentário
+        }
+      }
+
+      // Atualize o documento com a lista modificada de comentários
+      await postRef.update({
+        'comments': comments,
+      });
     } catch (e) {
       print(e);
     }
@@ -332,91 +315,127 @@ class DatabaseService {
     try {
       String uid = _auth.currentUser!.uid;
       UserProfile? user = await getUserInfoFromFirebase(uid);
-      Post newPost = Post(
-        id: '',
-        uid: uid,
-        name: user!.name,
-        username: user.username,
-        message: message,
-        timestamp: Timestamp.now(),
-        postImage: '',
-        postAudio: '',
-        likeCount: 0,
-        likedBy: [],
-      );
 
-      final data = await _db.collection('Posts').add(newPost.toMap());
-      final doc = await data.get();
-      Post post = Post.fromDocument(doc);
-      if (image != null) {
-        String postImage = await generatePostImageLink(image, post.id);
-        await _db.collection('Posts').doc(post.id).update(
-          {'postImage': postImage},
-        );
-        final postDoc = await _db.collection('Posts').doc(post.id).get();
-        post = Post.fromDocument(postDoc);
+      if (user == null) {
+        throw 'Usuário não encontrado';
       }
 
-      if (audio != null) {
-        String postAudio = await generatePostAudioLink(audio, post.id);
-        await _db.collection('Posts').doc(post.id).update(
-          {'postAudio': postAudio},
-        );
-        final postDoc = await _db.collection('Posts').doc(post.id).get();
-        post = Post.fromDocument(postDoc);
+      // Processa imagem e áudio em paralelo se existirem
+      String postImage = '';
+      String postAudio = '';
+
+      final postRef = await _db.collection('Posts').add({
+        'uid': uid,
+        'name': user.name,
+        'username': user.username,
+        'message': message.trim(),
+        'timestamp': FieldValue.serverTimestamp(),
+        'postImage': postImage,
+        'postAudio': postAudio,
+        'likeCount': 0,
+        'likedBy': [],
+        'comments': [],
+      });
+
+      // Processa mídia em paralelo se existir
+      if (image != null || audio != null) {
+        final futures = <Future>[];
+
+        if (image != null) {
+          futures.add(generatePostImageLink(image, postRef.id).then((url) {
+            postImage = url;
+          }));
+        }
+
+        if (audio != null) {
+          futures.add(generatePostAudioLink(audio, postRef.id).then((url) {
+            postAudio = url;
+          }));
+        }
+
+        await Future.wait(futures);
+
+        // Atualiza o post com as URLs de mídia
+        await postRef.update({
+          if (postImage.isNotEmpty) 'postImage': postImage,
+          if (postAudio.isNotEmpty) 'postAudio': postAudio,
+        });
       }
 
-      return post;
+      final postDoc = await postRef.get();
+      return Post.fromDocument(postDoc);
     } catch (e) {
-      print(e);
+      debugPrint('Erro ao criar post: $e');
       return null;
     }
   }
 
-  Future<void> followUserInFirebase(String uid) async {
+  Future<void> followUserInFirebase(UserProfile user) async {
     final currentUserId = _auth.currentUser!.uid;
+    final currentUser = await getUserInfoFromFirebase(currentUserId);
+
     await _db
         .collection('Users')
         .doc(currentUserId)
         .collection('Following')
-        .doc(uid)
-        .set({});
+        .add(user.toMap());
 
     await _db
         .collection('Users')
-        .doc(uid)
+        .doc(user.uid)
         .collection('Followers')
-        .doc(currentUserId)
-        .set({});
+        .add(currentUser!.toMap());
   }
 
   Future<void> unfollowUserInFirebase(String uid) async {
     final currentUserId = _auth.currentUser!.uid;
-    await _db
-        .collection('Users')
-        .doc(currentUserId)
-        .collection('Following')
-        .doc(uid)
-        .delete();
+    try {
+      final docFollowingRef = await _db
+          .collection('Users')
+          .doc(currentUserId)
+          .collection('Following')
+          .where('uid', isEqualTo: uid)
+          .get();
+      await docFollowingRef.docs.first.reference.delete();
 
-    await _db
-        .collection('Users')
-        .doc(uid)
-        .collection('Followers')
-        .doc(currentUserId)
-        .delete();
+      final docFollowersRef = await _db
+          .collection('Users')
+          .doc(uid)
+          .collection('Followers')
+          .where('uid', isEqualTo: currentUserId)
+          .get();
+      await docFollowersRef.docs.first.reference.delete();
+    } catch (e) {
+      if (kDebugMode) {
+        print(e);
+      }
+    }
+  }
+
+  Future<List<UserProfile>> getFollowersFromFirebase(String uid) async {
+    final snapshot =
+        await _db.collection('Users').doc(uid).collection('Followers').get();
+    return snapshot.docs.map((doc) => UserProfile.fromDocument(doc)).toList();
   }
 
   Future<List<String>> getFollowersUidsFromFirebase(String uid) async {
     final snapshot =
         await _db.collection('Users').doc(uid).collection('Followers').get();
-    return snapshot.docs.map((doc) => doc.id).toList();
+    List<UserProfile> followersUsers = [];
+    for (var doc in snapshot.docs) {
+      followersUsers.add(UserProfile.fromDocument(doc));
+    }
+    return followersUsers.map((user) => user.uid).toList();
   }
 
   Future<List<String>> getFollowingUidsFromFirebase(String uid) async {
     final snapshot =
         await _db.collection('Users').doc(uid).collection('Following').get();
-    return snapshot.docs.map((doc) => doc.id).toList();
+    List<UserProfile> followingUsers = [];
+    for (var doc in snapshot.docs) {
+      followingUsers.add(UserProfile.fromDocument(doc));
+    }
+    return followingUsers.map((user) => user.uid).toList();
   }
 
   Future<void> reportUserPostInFirebase(String postId, String uid) async {
@@ -432,14 +451,15 @@ class DatabaseService {
     await _db.collection('Reports').add(report);
   }
 
-  Future<void> blockUserInFirebase(String uid) async {
+  Future<void> blockUserInFirebase(UserProfile user) async {
     final currentUserId = _auth.currentUser!.uid;
     await _db
         .collection('Users')
         .doc(currentUserId)
         .collection('BlockedUsers')
-        .doc(uid)
-        .set({});
+        .doc(user.uid)
+        .set(user.toMap());
+    await unfollowUserInFirebase(user.uid);
   }
 
   Future<void> unblockUserInFirebase(String uid) async {
@@ -450,16 +470,6 @@ class DatabaseService {
         .collection('BlockedUsers')
         .doc(uid)
         .delete();
-  }
-
-  Future<List<String>> getBlockedUsersFromFirebase() async {
-    final currentUserId = _auth.currentUser!.uid;
-    final snapshot = await _db
-        .collection('Users')
-        .doc(currentUserId)
-        .collection('BlockedUsers')
-        .get();
-    return snapshot.docs.map((doc) => doc.id).toList();
   }
 
   Future<String> generatePostImageLink(File file, String postId) async {
@@ -519,38 +529,79 @@ class DatabaseService {
   /// Chat
   ///
 
-  // Enviar mensagem
   Future<void> sendMessage(String receiverId, String content) async {
-    try {
-      final String currentUserId = FirebaseAuth.instance.currentUser!.uid;
+    if (content.trim().isEmpty) {
+      throw 'A mensagem não pode estar vazia';
+    }
 
-      // Cria um ID de chat consistente ordenando os IDs dos usuários
+    final currentUserId = _auth.currentUser?.uid;
+    if (currentUserId == null) {
+      throw 'Usuário não está autenticado';
+    }
+
+    if (currentUserId == receiverId) {
+      throw 'Não é possível enviar mensagem para si mesmo';
+    }
+
+    try {
+      // Cria um ID de chat consistente
       final chatId = [currentUserId, receiverId]..sort();
       final String consistentChatId = '${chatId[0]}_${chatId[1]}';
+      final timestamp = FieldValue.serverTimestamp();
 
-      Message message = Message(
-        id: '',
-        senderId: currentUserId,
-        receiverId: receiverId,
-        content: content,
-        timestamp: Timestamp.now(),
-      );
+      // Prepara os dados da mensagem
+      final messageData = {
+        'senderId': currentUserId,
+        'receiverId': receiverId,
+        'content': content.trim(),
+        'timestamp': timestamp,
+        'isRead': false,
+        'isLiked': false,
+      };
 
-      // Primeiro, cria ou atualiza o documento principal do chat
-      await _db.collection('Chats').doc(consistentChatId).set({
-        'participants': [currentUserId, receiverId],
-        'lastMessage': message.toMap(),
-      }, SetOptions(merge: true));
+      // Usa transação para garantir consistência
+      await _db.runTransaction((transaction) async {
+        // Atualiza ou cria o documento do chat
+        final chatRef = _db.collection('Chats').doc(consistentChatId);
 
-      // Depois adiciona a mensagem na subcoleção
-      await _db
-          .collection('Chats')
-          .doc(consistentChatId)
-          .collection('Messages')
-          .add(message.toMap());
+        transaction.set(
+            chatRef,
+            {
+              'participants': [currentUserId, receiverId],
+              'lastMessage': messageData,
+            },
+            SetOptions(merge: true));
+
+        // Adiciona a mensagem na subcoleção
+        final messageRef = chatRef.collection('Messages').doc();
+        transaction.set(messageRef, messageData);
+      });
     } catch (e) {
-      print(e);
+      throw 'Erro ao enviar mensagem: ${e.toString()}';
     }
+  }
+
+  Future<Chat> getChat(String chatId) async {
+    final chat = await _db.collection('Chats').doc(chatId).get();
+    return Chat.fromDocument(chat);
+  }
+
+  Future<void> likeMessage(String chatId, String messageId) async {
+    await _db
+        .collection('Chats')
+        .doc(chatId)
+        .collection('Messages')
+        .doc(messageId)
+        .update({'isLiked': true});
+  }
+
+  Future<void> unlikeMessage(String chatId, String messageId) async {
+    await _db
+        .collection('Chats')
+        .doc(chatId)
+        .collection('Messages')
+        .doc(messageId)
+        .update({'isLiked': false});
   }
 
   //Delete message
@@ -616,11 +667,86 @@ class DatabaseService {
         .where('participants', arrayContains: currentUserId)
         .snapshots()
         .map((snapshot) =>
-            snapshot.docs.map((doc) => Chat.fromFirestore(doc)).toList());
+            snapshot.docs.map((doc) => Chat.fromDocument(doc)).toList());
   }
 
   // Deletar chat
   Future<void> deleteChat(String chatId) async {
     await _db.collection('Chats').doc(chatId).delete();
+  }
+
+  Stream<List<UserProfile>> getUserFollowersStream(String uid) {
+    try {
+      return _db
+          .collection('Users')
+          .doc(uid)
+          .collection('Followers')
+          .snapshots()
+          .asyncMap((snapshot) async {
+        return snapshot.docs
+            .map((doc) => UserProfile.fromDocument(doc))
+            .toList();
+      });
+    } catch (e) {
+      print(e);
+      return Stream.empty();
+    }
+  }
+
+  Stream<List<UserProfile>> getUserFollowingStream(String uid) {
+    try {
+      return _db
+          .collection('Users')
+          .doc(uid)
+          .collection('Following')
+          .snapshots()
+          .asyncMap((snapshot) async {
+        return snapshot.docs
+            .map((doc) => UserProfile.fromDocument(doc))
+            .toList();
+      });
+    } catch (e) {
+      print(e);
+      return Stream.empty();
+    }
+  }
+
+  Stream<List<UserProfile>> getBlockedUsersStream() {
+    final currentUserId = _auth.currentUser!.uid;
+    return _db
+        .collection('Users')
+        .doc(currentUserId)
+        .collection('BlockedUsers')
+        .snapshots()
+        .map((snapshot) =>
+            snapshot.docs.map((doc) => UserProfile.fromDocument(doc)).toList());
+  }
+
+  ///
+  /// Posts
+  ///
+
+  Stream<List<Post>> getPostsStream() {
+    return _db
+        .collection('Posts')
+        .orderBy('timestamp', descending: true)
+        .snapshots()
+        .map((snapshot) =>
+            snapshot.docs.map((doc) => Post.fromDocument(doc)).toList());
+  }
+
+  Stream<List<Comment>> getPostCommentsStream(String postId) {
+    // Os comentários não são uma coleção e sim uma lista de maps
+    return _db.collection('Posts').doc(postId).snapshots().map((snapshot) {
+      if (!snapshot.exists) return [];
+
+      final List<dynamic> commentsData = snapshot.data()?['comments'] ?? [];
+      return commentsData
+          .map((commentData) =>
+              Comment.fromMap(Map<String, dynamic>.from(commentData)))
+          .toList()
+        ..sort((a, b) => b.timestamp.compareTo(
+            a.timestamp)); // Ordena do mais recente para o mais antigo
+    });
   }
 }

@@ -1,23 +1,15 @@
 import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
-import 'package:twitter/app/twitter/providers/database_provider.dart';
-
 import 'package:twitter/app/core/app_colors.dart';
-import 'package:twitter/app/twitter/models/user.dart';
+import 'package:twitter/app/twitter/models/user_profile.dart';
 import 'package:twitter/app/twitter/pages/blocked%20users/widgets/blocked_user_card.dart';
+import 'package:twitter/app/twitter/services/database_service.dart';
 
-class BlockedUsersPage extends StatefulWidget {
+class BlockedUsersPage extends StatelessWidget {
   const BlockedUsersPage({super.key});
 
   @override
-  State<BlockedUsersPage> createState() => _BlockedUsersPageState();
-}
-
-class _BlockedUsersPageState extends State<BlockedUsersPage> {
-  late final listeningProvider = Provider.of<DatabaseProvider>(context);
-  @override
   Widget build(BuildContext context) {
-    List<UserProfile> users = listeningProvider.blockedUsers;
+    final _db = DatabaseService();
     return Scaffold(
       backgroundColor: AppColors.background,
       appBar: AppBar(
@@ -31,8 +23,12 @@ class _BlockedUsersPageState extends State<BlockedUsersPage> {
         ),
         centerTitle: true,
       ),
-      body: users.isEmpty
-          ? const Center(
+      body: StreamBuilder<List<UserProfile>>(
+        stream: _db.getBlockedUsersStream(),
+        builder: (context, blockedUsersSnapshot) {
+          final blockedUsers = blockedUsersSnapshot.data ?? [];
+          if (blockedUsers.isEmpty) {
+            return const Center(
               child: Text(
                 'Nenhum usuário bloqueado',
                 style: TextStyle(
@@ -40,26 +36,29 @@ class _BlockedUsersPageState extends State<BlockedUsersPage> {
                   fontSize: 18,
                 ),
               ),
-            )
-          : Padding(
-              padding: const EdgeInsets.symmetric(
-                horizontal: 20,
-                vertical: 15,
-              ),
-              child: ListView.separated(
-                itemBuilder: (context, index) {
-                  return BlockedUserCard(
-                    user: users[index],
-                  );
-                },
-                separatorBuilder: (context, index) => const Divider(
-                  color: AppColors.drawerBackground,
-                  height: 1,
-                  thickness: 1,
-                ),
-                itemCount: users.length,
-              ),
+            );
+          }
+          return Padding(
+            padding: const EdgeInsets.symmetric(
+              horizontal: 20,
+              vertical: 15,
             ),
+            child: ListView.separated(
+              itemBuilder: (context, index) {
+                return BlockedUserCard(
+                  user: blockedUsers[index],
+                );
+              },
+              separatorBuilder: (context, index) => const Divider(
+                color: AppColors.drawerBackground,
+                height: 1,
+                thickness: 1,
+              ),
+              itemCount: blockedUsers.length,
+            ),
+          );
+        },
+      ),
     );
   }
 }

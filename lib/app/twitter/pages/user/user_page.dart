@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:twitter/app/twitter/models/user.dart';
+import 'package:twitter/app/twitter/models/user_profile.dart';
 
 class UserPage extends StatefulWidget {
   const UserPage({

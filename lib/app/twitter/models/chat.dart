@@ -4,7 +4,7 @@ import 'message.dart'; // Importe a classe Message
 class Chat {
   final String chatId;
   final List<String> participants;
-  final Message lastMessage;
+  final Message? lastMessage;
 
   Chat({
     required this.chatId,
@@ -12,19 +12,31 @@ class Chat {
     required this.lastMessage,
   });
 
-  factory Chat.fromFirestore(DocumentSnapshot doc) {
-    final data = doc.data() as Map<String, dynamic>;
+  factory Chat.fromDocument(DocumentSnapshot doc) {
+    List<String> auxParticipants = [];
+    Message? auxLastMessage;
+    try {
+      auxParticipants = List<String>.from(doc['participants'] ?? []);
+    } catch (e) {
+      auxParticipants = [];
+    }
+
+    try {
+      auxLastMessage = Message.fromMap(doc['lastMessage'] ?? {});
+    } catch (e) {
+      auxLastMessage = null;
+    }
     return Chat(
       chatId: doc.id,
-      participants: List<String>.from(data['participants'] ?? []),
-      lastMessage: Message.fromMap(data['lastMessage'] ?? {}),
+      participants: auxParticipants,
+      lastMessage: auxLastMessage,
     );
   }
 
   Map<String, dynamic> toMap() {
     return {
       'participants': participants,
-      'lastMessage': lastMessage.toMap(),
+      'lastMessage': lastMessage?.toMap(),
     };
   }
 

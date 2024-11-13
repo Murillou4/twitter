@@ -7,6 +7,7 @@ class Message {
   final String content;
   final Timestamp timestamp;
   final bool isRead;
+  final bool isLiked;
 
   Message({
     required this.id,
@@ -15,6 +16,7 @@ class Message {
     required this.content,
     required this.timestamp,
     this.isRead = false,
+    this.isLiked = false,
   });
 
   factory Message.fromDocument(DocumentSnapshot doc) {
@@ -25,6 +27,7 @@ class Message {
       content: doc['content'],
       timestamp: doc['timestamp'],
       isRead: doc['isRead'],
+      isLiked: doc['isLiked'],
     );
   }
 
@@ -36,6 +39,7 @@ class Message {
       content: map['content'] ?? '',
       timestamp: map['timestamp'] ?? Timestamp.now(),
       isRead: map['isRead'] ?? false,
+      isLiked: map['isLiked'] ?? false,
     );
   }
 
@@ -46,6 +50,7 @@ class Message {
       'content': content,
       'timestamp': timestamp,
       'isRead': isRead,
+      'isLiked': isLiked,
     };
   }
 }

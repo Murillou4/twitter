@@ -30,8 +30,21 @@ class Comment {
     );
   }
 
+  factory Comment.fromMap(Map<String, dynamic> map) {
+    return Comment(
+      id: map['id'],
+      uid: map['uid'],
+      postId: map['postId'],
+      message: map['message'],
+      timestamp: map['timestamp'],
+      likeCount: map['likeCount'],
+      likedBy: List<String>.from(map['likedBy']),
+    );
+  }
+
   Map<String, dynamic> toMap() {
     return {
+      'id': id,
       'uid': uid,
       'postId': postId,
       'message': message,

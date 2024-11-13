@@ -1,24 +1,18 @@
 import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
+import 'package:twitter/app/twitter/models/user_profile.dart';
 import 'package:twitter/app/twitter/pages/profile/profile.dart';
-import 'package:twitter/app/twitter/providers/database_provider.dart';
 import 'package:twitter/app/core/app_colors.dart';
 import 'package:twitter/app/twitter/widgets/user_card.dart';
 
-class FollowPage extends StatefulWidget {
+class FollowPage extends StatelessWidget {
   const FollowPage({
     super.key,
-    required this.followersUserUids,
-    required this.followingUserUids,
+    required this.followersUsers,
+    required this.followingUsers,
   });
-  final List<String> followersUserUids;
-  final List<String> followingUserUids;
+  final List<UserProfile> followersUsers;
+  final List<UserProfile> followingUsers;
 
-  @override
-  State<FollowPage> createState() => _FollowPageState();
-}
-
-class _FollowPageState extends State<FollowPage> {
   @override
   Widget build(BuildContext context) {
     return DefaultTabController(
@@ -54,12 +48,12 @@ class _FollowPageState extends State<FollowPage> {
         body: TabBarView(
           children: [
             buildUserList(
-              widget.followingUserUids,
+              followingUsers,
               'Você não seguiu ninguém',
               context,
             ),
             buildUserList(
-              widget.followersUserUids,
+              followersUsers,
               'Nenhum seguidor ):',
               context,
             ),
@@ -71,9 +65,8 @@ class _FollowPageState extends State<FollowPage> {
 }
 
 Widget buildUserList(
-    List<String> usersUids, String emptyText, BuildContext context) {
-  final databaseProvider = Provider.of<DatabaseProvider>(context, listen: true);
-  return usersUids.isEmpty
+    List<UserProfile> users, String emptyText, BuildContext context) {
+  return users.isEmpty
       ? Center(
           child: Text(
             emptyText,
@@ -84,35 +77,22 @@ Widget buildUserList(
           ),
         )
       : ListView.builder(
-          itemCount: usersUids.length,
+          itemCount: users.length,
           itemBuilder: (context, index) {
-            return FutureBuilder(
-              future: databaseProvider.userProfile(
-                usersUids[index],
-              ),
-              builder: (context, snapshot) {
-                if (snapshot.hasData) {
-                  return UserCard(
-                    user: snapshot.data!,
-                    onTap: () async {
-                      await Navigator.push(
-                        context,
-                        PageRouteBuilder(
-                          pageBuilder: (context, animation1, animation2) =>
-                              Profile(
-                            user: snapshot.data!,
-                          ),
-                          transitionDuration:
-                              Duration.zero, // Duração da animação
-                          reverseTransitionDuration:
-                              Duration.zero, // Duração da animação ao voltar
-                        ),
-                      );
-                    },
-                  );
-                } else {
-                  return const SizedBox();
-                }
+            return UserCard(
+              user: users[index],
+              onTap: () async {
+                await Navigator.push(
+                  context,
+                  PageRouteBuilder(
+                    pageBuilder: (context, animation1, animation2) => Profile(
+                      user: users[index],
+                    ),
+                    transitionDuration: Duration.zero, // Duração da animação
+                    reverseTransitionDuration:
+                        Duration.zero, // Duração da animação ao voltar
+                  ),
+                );
               },
             );
           },

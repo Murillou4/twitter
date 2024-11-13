@@ -26,32 +26,32 @@ class _AudioPlayerWidgetState extends State<AudioPlayerWidget> {
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
-        Container(
-          width: 80,
-          padding: const EdgeInsets.symmetric(
-            vertical: 10,
-            horizontal: 10,
-          ),
-          decoration: BoxDecoration(
-            color: AppColors.drawerBackground,
-            borderRadius: BorderRadius.circular(10),
-            border: Border.all(
-              color: Colors.white,
-              width: 2,
+        GestureDetector(
+          onTap: () async {
+            if (widget.url != null) {
+              await audioProvider.setAudioAndPlay(
+                url: widget.url,
+              );
+            } else {
+              await audioProvider.setAudioAndPlay(
+                path: widget.audioFile!.path,
+              );
+            }
+          },
+          child: Container(
+            width: 80,
+            padding: const EdgeInsets.symmetric(
+              vertical: 10,
+              horizontal: 10,
             ),
-          ),
-          child: GestureDetector(
-            onTap: () async {
-              if (widget.url != null) {
-                await audioProvider.setAudioAndPlay(
-                  url: widget.url,
-                );
-              } else {
-                await audioProvider.setAudioAndPlay(
-                  path: widget.audioFile!.path,
-                );
-              }
-            },
+            decoration: BoxDecoration(
+              color: AppColors.drawerBackground,
+              borderRadius: BorderRadius.circular(10),
+              border: Border.all(
+                color: Colors.white,
+                width: 2,
+              ),
+            ),
             child: const Icon(
               Icons.play_arrow,
               color: Colors.white,

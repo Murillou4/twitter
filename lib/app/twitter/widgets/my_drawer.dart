@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:twitter/app/twitter/models/chat.dart';
+import 'package:twitter/app/twitter/models/user_profile.dart';
 import 'package:twitter/app/twitter/pages/chat/pages/chats_page.dart';
 import 'package:twitter/app/twitter/providers/database_provider.dart';
 import 'package:twitter/app/core/app_colors.dart';
@@ -12,6 +14,7 @@ import 'package:twitter/app/twitter/pages/follow/follow_page.dart';
 import 'package:twitter/app/twitter/pages/profile/profile.dart';
 import 'package:twitter/app/twitter/pages/search/search_page.dart';
 import 'package:twitter/app/twitter/pages/settings/settings_page.dart';
+import 'package:twitter/app/twitter/services/database_service.dart';
 import 'package:twitter/app/twitter/widgets/my_button.dart';
 
 class MyDrawer extends StatefulWidget {
@@ -24,9 +27,10 @@ class MyDrawer extends StatefulWidget {
 class _MyDrawerState extends State<MyDrawer> {
   final _auth = AuthService();
   TextEditingController usernameController = TextEditingController();
-  late final listeningProvider = Provider.of<DatabaseProvider>(context);
   late final databaseProvider =
       Provider.of<DatabaseProvider>(context, listen: false);
+
+  final _db = DatabaseService();
 
   void updateUserName() async {
     showDialog(
@@ -81,7 +85,6 @@ class _MyDrawerState extends State<MyDrawer> {
 
                 await databaseProvider.updateUserName(usernameController.text);
                 usernameController.clear();
-                setState(() {});
                 context.mounted ? Navigator.of(context).pop() : null;
               },
               buttonColor: AppColors.background,
@@ -97,12 +100,8 @@ class _MyDrawerState extends State<MyDrawer> {
 
   @override
   Widget build(BuildContext context) {
-    final followersCount =
-        listeningProvider.getFollowersCount(_auth.getCurrentUserUid());
-    final followingCount =
-        listeningProvider.getFollowingCount(_auth.getCurrentUserUid());
     return Consumer<DatabaseProvider>(
-      builder: (context, value, child) {
+      builder: (context, provider, child) {
         return Drawer(
           backgroundColor: AppColors.drawerBackground,
           child: Padding(
@@ -176,64 +175,65 @@ class _MyDrawerState extends State<MyDrawer> {
                   ),
                 ),
                 const MyDivider(),
-                GestureDetector(
-                  onTap: () {
-                    Navigator.push(
-                      context,
-                      PageRouteBuilder(
-                        pageBuilder: (context, animation1, animation2) =>
-                            FollowPage(
-                          followersUserUids: databaseProvider.followers[
-                                  databaseProvider.loggedUserInfo!.uid] ??
-                              [],
-                          followingUserUids: databaseProvider.following[
-                                  databaseProvider.loggedUserInfo!.uid] ??
-                              [],
-                        ),
-                        transitionDuration:
-                            Duration.zero, // Duração da animação
-                        reverseTransitionDuration:
-                            Duration.zero, // Duração da animação ao voltar
-                      ),
-                    );
-                  },
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Text(
-                        databaseProvider.loggedUserInfo != null
-                            ? '$followingCount Seguindo'
-                            : '0 Seguindo',
-                        style: const TextStyle(
-                          color: AppColors.lightGrey,
-                          fontSize: 16,
-                          fontWeight: FontWeight.w500,
-                        ),
-                      ),
-                      const Gap(20),
-                      Text(
-                        databaseProvider.loggedUserInfo != null
-                            ? '$followersCount Seguidores'
-                            : '0 Seguidores',
-                        style: const TextStyle(
-                          color: AppColors.lightGrey,
-                          fontSize: 16,
-                          fontWeight: FontWeight.w500,
-                        ),
-                      ),
-                      const Gap(10),
-                      GestureDetector(
-                        onTap: () async {
-                          await databaseProvider.initLoggedUserInfo();
-                        },
-                        child: const Icon(
-                          Icons.refresh_rounded,
-                          color: AppColors.lightGrey,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
+                StreamBuilder<List<UserProfile>>(
+                    stream: _db.getUserFollowingStream(
+                      databaseProvider.loggedUserInfo!.uid,
+                    ),
+                    builder: (context, followingSnapshot) {
+                      return StreamBuilder<List<UserProfile>>(
+                          stream: _db.getUserFollowersStream(
+                            databaseProvider.loggedUserInfo!.uid,
+                          ),
+                          builder: (context, followersSnapshot) {
+                            final followingUsers = followingSnapshot.data ?? [];
+                            final followersUsers = followersSnapshot.data ?? [];
+                            return GestureDetector(
+                              onTap: () {
+                                Navigator.push(
+                                  context,
+                                  PageRouteBuilder(
+                                    pageBuilder:
+                                        (context, animation1, animation2) =>
+                                            FollowPage(
+                                      followersUsers: followersUsers,
+                                      followingUsers: followingUsers,
+                                    ),
+                                    transitionDuration:
+                                        Duration.zero, // Duração da animação
+                                    reverseTransitionDuration: Duration
+                                        .zero, // Duração da animação ao voltar
+                                  ),
+                                );
+                              },
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Text(
+                                    databaseProvider.loggedUserInfo != null
+                                        ? '${followingUsers.length} Seguindo'
+                                        : '0 Seguindo',
+                                    style: const TextStyle(
+                                      color: AppColors.lightGrey,
+                                      fontSize: 16,
+                                      fontWeight: FontWeight.w500,
+                                    ),
+                                  ),
+                                  const Gap(20),
+                                  Text(
+                                    databaseProvider.loggedUserInfo != null
+                                        ? '${followersUsers.length} Seguidores'
+                                        : '0 Seguidores',
+                                    style: const TextStyle(
+                                      color: AppColors.lightGrey,
+                                      fontSize: 16,
+                                      fontWeight: FontWeight.w500,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            );
+                          });
+                    }),
                 const MyDivider(),
                 DrawerItem(
                   text: 'Home',
@@ -263,23 +263,62 @@ class _MyDrawerState extends State<MyDrawer> {
                   },
                 ),
                 const MyDivider(),
-                DrawerItem(
-                  text: 'Chats',
-                  icon: Icons.chat_rounded,
-                  onTap: () async {
-                    await Navigator.push(
-                      context,
-                      PageRouteBuilder(
-                        pageBuilder: (context, animation1, animation2) =>
-                            ChatsPage(),
-                        transitionDuration:
-                            Duration.zero, // Duração da animação
-                        reverseTransitionDuration:
-                            Duration.zero, // Duração da animação ao voltar
-                      ),
-                    );
-                  },
-                ),
+                StreamBuilder<List<Chat>>(
+                    stream: _db.getUserChats(),
+                    builder: (context, snapshot) {
+                      final chats = snapshot.data ?? [];
+                      final int unreadChats = chats
+                          .where((chat) =>
+                              chat.lastMessage != null &&
+                              !chat.lastMessage!.isRead)
+                          .length;
+                      return Row(
+                        mainAxisSize: MainAxisSize.min,
+                        crossAxisAlignment: CrossAxisAlignment.center,
+                        children: [
+                          DrawerItem(
+                            text: 'Chats',
+                            icon: Icons.chat_rounded,
+                            onTap: () async {
+                              await Navigator.push(
+                                context,
+                                PageRouteBuilder(
+                                  pageBuilder:
+                                      (context, animation1, animation2) =>
+                                          ChatsPage(),
+                                  transitionDuration:
+                                      Duration.zero, // Duração da animação
+                                  reverseTransitionDuration: Duration
+                                      .zero, // Duração da animação ao voltar
+                                ),
+                              );
+                            },
+                          ),
+                          unreadChats > 0
+                              ? const Gap(20)
+                              : const SizedBox.shrink(),
+                          unreadChats > 0
+                              ? Container(
+                                  height: 20,
+                                  width: 20,
+                                  alignment: Alignment.center,
+                                  decoration: BoxDecoration(
+                                    color: AppColors.twitterBlue,
+                                    borderRadius: BorderRadius.circular(50),
+                                  ),
+                                  child: Text(
+                                    '$unreadChats',
+                                    style: const TextStyle(
+                                      color: AppColors.white,
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.w500,
+                                    ),
+                                  ),
+                                )
+                              : const SizedBox.shrink(),
+                        ],
+                      );
+                    }),
                 const MyDivider(),
                 DrawerItem(
                   text: 'Configurações',

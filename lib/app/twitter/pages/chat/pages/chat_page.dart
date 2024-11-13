@@ -1,19 +1,22 @@
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+import 'package:gap/gap.dart';
 import 'package:twitter/app/core/app_colors.dart';
+import 'package:twitter/app/twitter/models/chat.dart';
 import 'package:twitter/app/twitter/models/message.dart';
-import 'package:twitter/app/twitter/models/user.dart';
+import 'package:twitter/app/twitter/models/user_profile.dart';
 import 'package:twitter/app/twitter/pages/auth/services/auth_service.dart';
 import 'package:twitter/app/twitter/pages/chat/pages/widgets/message_bubble.dart';
 import 'package:twitter/app/twitter/services/database_service.dart';
 
 class ChatPage extends StatefulWidget {
   final UserProfile otherUser;
-  final String chatId;
+  final Chat chat;
   const ChatPage({
     super.key,
     required this.otherUser,
-    required this.chatId,
+    required this.chat,
   });
 
   @override
@@ -23,16 +26,34 @@ class ChatPage extends StatefulWidget {
 class _ChatPageState extends State<ChatPage> {
   final TextEditingController _messageController = TextEditingController();
   final _db = DatabaseService();
-
+  final ScrollController _scrollController = ScrollController();
   @override
   Widget build(BuildContext context) {
+    if (widget.chat.lastMessage != null &&
+        widget.chat.participants.isNotEmpty) {
+      _db.markChatLastMessageAsRead(widget.chat.chatId);
+    }
     return Scaffold(
       backgroundColor: AppColors.background,
       appBar: AppBar(
         backgroundColor: AppColors.background,
-        title: Text(
-          widget.otherUser.name,
-          style: const TextStyle(color: AppColors.white),
+        centerTitle: true,
+        title: Row(
+          mainAxisSize: MainAxisSize.min,
+          mainAxisAlignment: MainAxisAlignment.start,
+          children: [
+            CircleAvatar(
+              radius: 20,
+              backgroundImage: CachedNetworkImageProvider(
+                widget.otherUser.photoUrl,
+              ),
+            ),
+            const Gap(10),
+            Text(
+              widget.otherUser.name,
+              style: const TextStyle(color: AppColors.white),
+            ),
+          ],
         ),
         iconTheme: const IconThemeData(color: AppColors.white),
       ),
@@ -49,6 +70,7 @@ class _ChatPageState extends State<ChatPage> {
                 final messages = snapshot.data!;
 
                 return ListView.builder(
+                  controller: _scrollController,
                   reverse: true,
                   itemCount: messages.length,
                   itemBuilder: (context, index) {
@@ -59,7 +81,7 @@ class _ChatPageState extends State<ChatPage> {
                     return MessageBubble(
                       message: message,
                       isMe: isMe,
-                      chatId: widget.chatId,
+                      chatId: widget.chat.chatId,
                     );
                   },
                 );
@@ -94,6 +116,12 @@ class _ChatPageState extends State<ChatPage> {
                     await _db.sendMessage(
                       widget.otherUser.uid,
                       _messageController.text,
+                    );
+
+                    _scrollController.animateTo(
+                      0,
+                      duration: const Duration(milliseconds: 300),
+                      curve: Curves.easeInOut,
                     );
 
                     _messageController.clear();

@@ -2,47 +2,27 @@ import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:gap/gap.dart';
 import 'package:twitter/app/core/app_colors.dart';
+import 'package:twitter/app/twitter/pages/auth/controllers/login_controller.dart';
 import 'package:twitter/app/twitter/pages/auth/services/auth_service.dart';
 import 'package:twitter/app/twitter/pages/auth/widgets/my_textfield.dart';
 import 'package:twitter/app/twitter/widgets/my_button.dart';
 import 'package:twitter/app/twitter/widgets/my_loading_circle.dart';
 
 class Login extends StatefulWidget {
-  const Login({super.key, this.togglePages});
+  const Login({
+    super.key,
+    this.togglePages,
+    required this.login,
+  });
   final Function()? togglePages;
+  final VoidCallback login;
 
   @override
   State<Login> createState() => _LoginState();
 }
 
 class _LoginState extends State<Login> {
-  final _auth = AuthService();
-  final TextEditingController emailController = TextEditingController();
-  final TextEditingController passwordController = TextEditingController();
-
-  void login() async {
-    if (emailController.text.isEmpty || passwordController.text.isEmpty) {
-      return;
-    }
-    showLoadingCircle(context);
-    try {
-      await _auth.login(
-        emailController.text,
-        passwordController.text,
-      );
-      
-      context.mounted ? hideLoadingCircle(context) : null;
-    } catch (e) {
-      context.mounted ? hideLoadingCircle(context) : null;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(e.toString()),
-          behavior: SnackBarBehavior.floating,
-        ),
-      );
-    }
-  }
-
+  final LoginController _loginController = LoginController.instance;
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -76,13 +56,13 @@ class _LoginState extends State<Login> {
               ),
               const Gap(30),
               MyTextfield(
-                controller: emailController,
+                controller: _loginController.emailController,
                 hintText: 'Email',
                 icon: Icons.email_outlined,
               ),
               const Gap(20),
               MyTextfield(
-                controller: passwordController,
+                controller: _loginController.passwordController,
                 hintText: 'Senha',
                 icon: Icons.lock_outline,
                 isPassword: true,
@@ -104,7 +84,7 @@ class _LoginState extends State<Login> {
                 buttonColor: AppColors.white,
                 textColor: AppColors.background,
                 text: 'Entrar',
-                onTap: login,
+                onTap: widget.login,
               ),
               const Gap(20),
               Row(

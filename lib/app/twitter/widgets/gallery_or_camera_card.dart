@@ -10,7 +10,7 @@ class GalleryOrCameraCard extends StatelessWidget {
     required this.onChoose,
     this.isGif = false,
   });
-  final Future<void> Function(BuildContext, ImageSource, [bool isGif]) onChoose;
+  final Future<void> Function(ImageSource, [bool isGif]) onChoose;
   final bool isGif;
 
   @override
@@ -25,128 +25,68 @@ class GalleryOrCameraCard extends StatelessWidget {
           ),
         ),
       ),
-      content: Column(
-        mainAxisSize: MainAxisSize.min,
+      content: Row(
+        mainAxisSize: MainAxisSize.max,
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
         crossAxisAlignment: CrossAxisAlignment.center,
         children: [
-          Row(
-            mainAxisSize: MainAxisSize.max,
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Flexible(
-                child: GestureDetector(
-                  onTap: () async {
-                    showLoadingCircle(context);
-                    await onChoose(context, ImageSource.camera);
-                    context.mounted ? hideLoadingCircle(context) : null;
-                    context.mounted ? Navigator.pop(context) : null;
-                  },
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Container(
-                        width: 100,
-                        height: 100,
-                        decoration: BoxDecoration(
-                          color: AppColors.background,
-                          borderRadius: BorderRadius.circular(15),
-                          border: Border.all(
-                            color: AppColors.white,
-                            width: 1.5,
-                          ),
-                        ),
-                        alignment: Alignment.center,
-                        child: const Icon(
-                          Icons.camera_alt,
-                          color: AppColors.white,
-                          size: 50,
-                        ),
+          Flexible(
+            child: GestureDetector(
+              onTap: () async {
+                await onChoose(ImageSource.camera);
+              },
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Container(
+                    width: 50,
+                    height: 50,
+                    decoration: BoxDecoration(
+                      color: AppColors.background,
+                      borderRadius: BorderRadius.circular(15),
+                      border: Border.all(
+                        color: AppColors.white,
+                        width: 1.5,
                       ),
-                      const Gap(10),
-                      const Card(
-                        color: AppColors.background,
-                        child: Padding(
-                          padding: EdgeInsets.all(8.0),
-                          child: Text(
-                            'Câmera',
-                            style: TextStyle(
-                              color: AppColors.white,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                        ),
-                      ),
-                    ],
+                    ),
+                    alignment: Alignment.center,
+                    child: const Icon(
+                      Icons.camera_alt,
+                      color: AppColors.white,
+                      size: 25,
+                    ),
                   ),
-                ),
-              ),
-              Flexible(
-                child: GestureDetector(
-                  onTap: () async {
-                    showLoadingCircle(context);
-                    await onChoose(context, ImageSource.gallery);
-                    context.mounted ? hideLoadingCircle(context) : null;
-                    context.mounted ? Navigator.pop(context) : null;
-                  },
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Container(
-                        width: 100,
-                        height: 100,
-                        decoration: BoxDecoration(
-                          color: AppColors.background,
-                          borderRadius: BorderRadius.circular(15),
-                          border: Border.all(
-                            color: AppColors.white,
-                            width: 1.5,
-                          ),
-                        ),
-                        alignment: Alignment.center,
-                        child: const Icon(
-                          Icons.image,
+                  const Gap(10),
+                  const Card(
+                    color: AppColors.background,
+                    child: Padding(
+                      padding: EdgeInsets.all(8.0),
+                      child: Text(
+                        'Câmera',
+                        style: TextStyle(
                           color: AppColors.white,
-                          size: 50,
+                          fontWeight: FontWeight.bold,
                         ),
                       ),
-                      const Gap(10),
-                      const Card(
-                        color: AppColors.background,
-                        child: Padding(
-                          padding: EdgeInsets.all(8.0),
-                          child: Text(
-                            'Galeria',
-                            style: TextStyle(
-                              color: AppColors.white,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                        ),
-                      ),
-                    ],
+                    ),
                   ),
-                ),
+                ],
               ),
-            ],
+            ),
           ),
           !isGif
               ? Container()
               : Flexible(
-                child: Padding(
-                  padding: const EdgeInsets.only(top: 20),
                   child: GestureDetector(
                     onTap: () async {
-                      showLoadingCircle(context);
-                      await onChoose(context, ImageSource.gallery, true);
-                      context.mounted ? hideLoadingCircle(context) : null;
-                      context.mounted ? Navigator.pop(context) : null;
+                      await onChoose(ImageSource.gallery, true);
                     },
                     child: Column(
                       mainAxisSize: MainAxisSize.min,
                       children: [
                         Container(
-                          width: 100,
-                          height: 100,
+                          width: 50,
+                          height: 50,
                           decoration: BoxDecoration(
                             color: AppColors.background,
                             borderRadius: BorderRadius.circular(15),
@@ -159,7 +99,7 @@ class GalleryOrCameraCard extends StatelessWidget {
                           child: const Icon(
                             Icons.gif,
                             color: AppColors.white,
-                            size: 50,
+                            size: 25,
                           ),
                         ),
                         const Gap(10),
@@ -180,7 +120,50 @@ class GalleryOrCameraCard extends StatelessWidget {
                     ),
                   ),
                 ),
+          Flexible(
+            child: GestureDetector(
+              onTap: () async {
+                await onChoose(ImageSource.gallery);
+              },
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Container(
+                    width: 50,
+                    height: 50,
+                    decoration: BoxDecoration(
+                      color: AppColors.background,
+                      borderRadius: BorderRadius.circular(15),
+                      border: Border.all(
+                        color: AppColors.white,
+                        width: 1.5,
+                      ),
+                    ),
+                    alignment: Alignment.center,
+                    child: const Icon(
+                      Icons.image,
+                      color: AppColors.white,
+                      size: 25,
+                    ),
+                  ),
+                  const Gap(10),
+                  const Card(
+                    color: AppColors.background,
+                    child: Padding(
+                      padding: EdgeInsets.all(8.0),
+                      child: Text(
+                        'Galeria',
+                        style: TextStyle(
+                          color: AppColors.white,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
               ),
+            ),
+          ),
         ],
       ),
     );

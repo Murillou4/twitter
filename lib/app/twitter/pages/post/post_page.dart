@@ -1,15 +1,15 @@
 import 'package:flutter/material.dart';
 import 'package:gap/gap.dart';
 import 'package:provider/provider.dart';
-import 'package:twitter/app/twitter/providers/database_provider.dart';
-
-import 'package:twitter/app/core/app_colors.dart';
 import 'package:twitter/app/twitter/models/comment.dart';
+import 'package:twitter/app/twitter/providers/database_provider.dart';
+import 'package:twitter/app/core/app_colors.dart';
 import 'package:twitter/app/twitter/models/post.dart';
+import 'package:twitter/app/twitter/services/database_service.dart';
 import 'package:twitter/app/twitter/widgets/comment_card.dart';
 import 'package:twitter/app/twitter/widgets/post_card.dart';
 
-class PostPage extends StatefulWidget {
+class PostPage extends StatelessWidget {
   const PostPage({
     super.key,
     required this.post,
@@ -18,28 +18,13 @@ class PostPage extends StatefulWidget {
   final Post post;
 
   @override
-  State<PostPage> createState() => _PostPageState();
-}
-
-class _PostPageState extends State<PostPage> {
-  late final databaseProvider =
-      Provider.of<DatabaseProvider>(context, listen: false);
-  @override
   Widget build(BuildContext context) {
+    final _db = DatabaseService();
     return Scaffold(
       backgroundColor: AppColors.background,
       appBar: AppBar(
         backgroundColor: AppColors.background,
         iconTheme: const IconThemeData(color: AppColors.white),
-        leading: IconButton(
-          onPressed: () async {
-            await databaseProvider.initPosts();
-            context.mounted ? Navigator.pop(context) : null;
-          },
-          icon: const Icon(
-            Icons.arrow_back,
-          ),
-        ),
         title: const Text(
           'T W E E T',
           style: TextStyle(
@@ -53,7 +38,7 @@ class _PostPageState extends State<PostPage> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           PostCard(
-            post: widget.post,
+            post: post,
             isClickble: false,
             isOnPage: true,
           ),
@@ -74,40 +59,29 @@ class _PostPageState extends State<PostPage> {
             color: AppColors.lightGrey,
             thickness: 0.5,
           ),
-          widget.post.comments.isEmpty
-              ? const Center(
-                  child: Text(
-                    'Nenhum comentário',
-                    style: TextStyle(
-                      color: AppColors.lightGrey,
-                      fontSize: 20,
-                    ),
-                  ),
-                )
-              : Flexible(
-                  child: Consumer<DatabaseProvider>(
-                      builder: (context, databaseProvider, child) {
-                    List<Comment> comments = databaseProvider.posts
-                        .where(
-                          (element) => element.id == widget.post.id,
-                        )
-                        .first
-                        .comments;
-                    return ListView.separated(
-                      shrinkWrap: true,
-                      itemBuilder: (context, index) {
-                        return CommentCard(
-                          comment: comments[index],
-                        );
-                      },
-                      separatorBuilder: (context, index) => const Divider(
-                        color: AppColors.lightGrey,
-                        thickness: 0.5,
-                      ),
-                      itemCount: comments.length,
-                    );
-                  }),
-                )
+          StreamBuilder<List<Comment>>(
+              stream: _db.getPostCommentsStream(post.id),
+              builder: (context, comments) {
+                return comments.data == null
+                    ? const Center(
+                        child: Text('Erro ao carregar comentários'),
+                      )
+                    : Flexible(
+                        child: ListView.separated(
+                          shrinkWrap: true,
+                          itemBuilder: (context, index) {
+                            return CommentCard(
+                              comment: comments.data![index],
+                            );
+                          },
+                          separatorBuilder: (context, index) => const Divider(
+                            color: AppColors.lightGrey,
+                            thickness: 0.5,
+                          ),
+                          itemCount: comments.data!.length,
+                        ),
+                      );
+              })
         ],
       ),
     );

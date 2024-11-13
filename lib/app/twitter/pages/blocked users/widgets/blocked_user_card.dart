@@ -3,7 +3,8 @@ import 'package:provider/provider.dart';
 import 'package:twitter/app/twitter/providers/database_provider.dart';
 
 import 'package:twitter/app/core/app_colors.dart';
-import 'package:twitter/app/twitter/models/user.dart';
+import 'package:twitter/app/twitter/models/user_profile.dart';
+import 'package:twitter/app/twitter/services/database_service.dart';
 
 class BlockedUserCard extends StatefulWidget {
   const BlockedUserCard({
@@ -17,8 +18,7 @@ class BlockedUserCard extends StatefulWidget {
 }
 
 class _BlockedUserCardState extends State<BlockedUserCard> {
-  late final databaseProvider =
-      Provider.of<DatabaseProvider>(context, listen: false);
+  final _db = DatabaseService();
 
   @override
   Widget build(BuildContext context) {
@@ -41,7 +41,7 @@ class _BlockedUserCardState extends State<BlockedUserCard> {
       ),
       trailing: GestureDetector(
         onTap: () async {
-          await databaseProvider.unblockUser(widget.user.uid);
+          await _db.unblockUserInFirebase(widget.user.uid);
         },
         child: const Card(
           color: AppColors.drawerBackground,

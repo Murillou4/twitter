@@ -8,7 +8,7 @@ void showLoadingCircle(BuildContext context) {
     builder: (context) {
       return const Center(
         child: CircularProgressIndicator(
-          color: AppColors.twitterBlue,
+          color: AppColors.white,
         ),
       );
     },

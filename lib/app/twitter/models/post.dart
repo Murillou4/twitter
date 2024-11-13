@@ -25,8 +25,8 @@ class Post {
     this.likedBy = const [],
     this.postImage = '',
     this.postAudio = '',
-    this.comments = const [], 
-  }); 
+    this.comments = const [],
+  });
 
   factory Post.fromDocument(DocumentSnapshot doc) {
     return Post(
@@ -40,7 +40,8 @@ class Post {
       postAudio: doc['postAudio'],
       likeCount: doc['likeCount'],
       likedBy: List<String>.from(doc['likedBy']),
-      comments: [], // Inicializa a lista de comentários vazia, modificável
+      comments: List<Comment>.from(
+          doc['comments'].map((comment) => Comment.fromMap(comment))),
     );
   }
 
@@ -55,6 +56,7 @@ class Post {
       'postAudio': postAudio,
       'likeCount': likeCount,
       'likedBy': likedBy,
+      'comments': comments.map((comment) => comment.toMap()).toList(),
     };
   }
 }

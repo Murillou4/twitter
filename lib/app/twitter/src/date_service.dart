@@ -69,4 +69,11 @@ class DateService {
     month = month.substring(0, 3);
     return '$day de $month';
   }
+
+  static String timestampToHourAndMinute(Timestamp timestamp) {
+    DateTime date = timestamp.toDate();
+    String hour = date.hour.toString();
+    String minute = date.minute.toString();
+    return '$hour:$minute';
+  }
 }

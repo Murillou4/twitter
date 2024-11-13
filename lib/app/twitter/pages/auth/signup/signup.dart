@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:gap/gap.dart';
+import 'package:twitter/app/twitter/pages/auth/controllers/signup_controller.dart';
 import 'package:twitter/app/twitter/services/database_service.dart';
 import 'package:twitter/app/core/app_colors.dart';
 import 'package:twitter/app/twitter/pages/auth/services/auth_service.dart';
@@ -9,54 +10,19 @@ import 'package:twitter/app/twitter/widgets/my_button.dart';
 import 'package:twitter/app/twitter/widgets/my_loading_circle.dart';
 
 class Signup extends StatefulWidget {
-  const Signup({super.key, this.togglePages});
+  const Signup({
+    super.key,
+    this.togglePages,
+    required this.signup,
+  });
   final Function()? togglePages;
-
+  final VoidCallback signup;
   @override
   State<Signup> createState() => _SignupState();
 }
 
 class _SignupState extends State<Signup> {
-  final _auth = AuthService();
-  final _db = DatabaseService();
-  final TextEditingController nameController = TextEditingController();
-  final TextEditingController emailController = TextEditingController();
-  final TextEditingController passwordController = TextEditingController();
-  final TextEditingController confirmPasswordController =
-      TextEditingController();
-
-  void signup() async {
-    if (nameController.text.isEmpty ||
-        emailController.text.isEmpty ||
-        passwordController.text.isEmpty ||
-        confirmPasswordController.text.isEmpty) {
-      return;
-    }
-    if (passwordController.text != confirmPasswordController.text) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('As senhas precisam ser iguais'),
-          behavior: SnackBarBehavior.floating,
-        ),
-      );
-      return;
-    }
-    context.mounted ? showLoadingCircle(context) : null;
-    try {
-      await _auth.signup(emailController.text, passwordController.text);
-      await _db.saveUserInfoInFirebase(
-          name: nameController.text, email: emailController.text);
-      context.mounted ? hideLoadingCircle(context) : null;
-    } catch (e) {
-      hideLoadingCircle(context);
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(e.toString()),
-          behavior: SnackBarBehavior.floating,
-        ),
-      );
-    }
-  }
+  final SignupController _signupController = SignupController.instance;
 
   @override
   Widget build(BuildContext context) {
@@ -91,20 +57,20 @@ class _SignupState extends State<Signup> {
               ),
               const Gap(30),
               MyTextfield(
-                controller: nameController,
+                controller: _signupController.nameController,
                 hintText: 'Nome',
                 icon: Icons.person_outline,
                 maxLength: 25,
               ),
               const Gap(20),
               MyTextfield(
-                controller: emailController,
+                controller: _signupController.emailController,
                 hintText: 'Email',
                 icon: Icons.email_outlined,
               ),
               const Gap(20),
               MyTextfield(
-                controller: passwordController,
+                controller: _signupController.passwordController,
                 hintText: 'Senha',
                 icon: Icons.lock_outline,
                 isPassword: true,
@@ -112,7 +78,7 @@ class _SignupState extends State<Signup> {
               ),
               const Gap(20),
               MyTextfield(
-                controller: confirmPasswordController,
+                controller: _signupController.confirmPasswordController,
                 hintText: 'Confirmar senha',
                 icon: Icons.lock_outline,
                 isPassword: true,
@@ -123,7 +89,7 @@ class _SignupState extends State<Signup> {
                 buttonColor: AppColors.white,
                 textColor: AppColors.background,
                 text: 'Sign up',
-                onTap: signup,
+                onTap: widget.signup,
               ),
               const Gap(20),
               Row(

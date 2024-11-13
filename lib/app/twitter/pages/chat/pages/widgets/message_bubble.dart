@@ -1,10 +1,12 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+import 'package:gap/gap.dart';
 import 'package:twitter/app/core/app_colors.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
+
 import 'package:intl/intl.dart';
 import 'package:twitter/app/twitter/models/message.dart';
 import 'package:twitter/app/twitter/services/database_service.dart';
+import 'package:twitter/app/twitter/src/date_service.dart';
 import 'package:twitter/app/twitter/widgets/my_button.dart';
 
 class MessageBubble extends StatefulWidget {
@@ -28,17 +30,11 @@ class _MessageBubbleState extends State<MessageBubble> {
   final _db = DatabaseService();
 
   @override
-  void initState() {
-    super.initState();
-    // Marcar a mensagem como lida quando o usuário abrir a mensagem
+  Widget build(BuildContext context) {
     if (!widget.message.isRead &&
         widget.message.senderId != FirebaseAuth.instance.currentUser!.uid) {
       _db.markMessageAsRead(widget.chatId, widget.message.id);
     }
-  }
-
-  @override
-  Widget build(BuildContext context) {
     return GestureDetector(
       onLongPress: () {
         //Abrir um popup para deletar a mensagem se o usuário for o remetente
@@ -66,7 +62,6 @@ class _MessageBubbleState extends State<MessageBubble> {
                   textColor: AppColors.white,
                   text: 'Deletar',
                   onTap: () async {
-                    final _db = DatabaseService();
                     await _db.deleteMessage(
                       widget.chatId,
                       widget.message.id,
@@ -81,55 +76,84 @@ class _MessageBubbleState extends State<MessageBubble> {
           );
         }
       },
+      onDoubleTap: () {
+        if (widget.isMe) {
+          return;
+        }
+        if (!widget.message.isLiked) {
+          _db.likeMessage(widget.chatId, widget.message.id);
+        } else {
+          _db.unlikeMessage(widget.chatId, widget.message.id);
+        }
+      },
       child: Align(
         alignment: widget.isMe ? Alignment.centerRight : Alignment.centerLeft,
-        child: Container(
-          margin: const EdgeInsets.all(8),
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-          decoration: BoxDecoration(
-            color: widget.isMe ? Colors.blueGrey : AppColors.drawerBackground,
-            borderRadius: BorderRadius.circular(20),
-          ),
-          child: Column(
-            crossAxisAlignment:
-                widget.isMe ? CrossAxisAlignment.end : CrossAxisAlignment.start,
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text(
-                widget.message.content,
-                style: const TextStyle(
-                  color: AppColors.white,
-                  fontSize: 16,
-                ),
+        child: Stack(
+          children: [
+            Container(
+              margin: const EdgeInsets.all(8),
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+              decoration: BoxDecoration(
+                color:
+                    widget.isMe ? Colors.blueGrey : AppColors.drawerBackground,
+                borderRadius: BorderRadius.circular(20),
               ),
-              const SizedBox(height: 4),
-              Row(
+              constraints: BoxConstraints(
+                maxWidth: MediaQuery.of(context).size.width * 0.7,
+              ),
+              child: Column(
+                crossAxisAlignment: widget.isMe
+                    ? CrossAxisAlignment.end
+                    : CrossAxisAlignment.start,
                 mainAxisSize: MainAxisSize.min,
-                mainAxisAlignment: MainAxisAlignment.end,
                 children: [
                   Text(
-                    DateFormat('HH:mm')
-                        .format(widget.message.timestamp.toDate()),
+                    widget.message.content,
                     style: const TextStyle(
-                      color: Colors.white70,
-                      fontSize: 10,
+                      color: AppColors.white,
+                      fontSize: 16,
                     ),
                   ),
-                  !widget.message.isRead
-                      ? const Icon(
-                          Icons.check,
+                  const SizedBox(height: 4),
+                  Row(
+                    mainAxisSize: MainAxisSize.min,
+                    mainAxisAlignment: MainAxisAlignment.end,
+                    children: [
+                      Text(
+                        DateService.timestampToHourAndMinute(
+                            widget.message.timestamp),
+                        style: const TextStyle(
                           color: Colors.white70,
-                          size: 16,
-                        )
-                      : const Icon(
-                          Icons.check,
-                          color: Colors.green,
-                          size: 16,
+                          fontSize: 10,
                         ),
+                      ),
+                      !widget.message.isRead
+                          ? const Icon(
+                              Icons.check,
+                              color: Colors.white70,
+                              size: 16,
+                            )
+                          : const Icon(
+                              Icons.check,
+                              color: Colors.green,
+                              size: 16,
+                            ),
+                    ],
+                  ),
                 ],
               ),
-            ],
-          ),
+            ),
+            if (widget.message.isLiked)
+              Positioned(
+                bottom: 0,
+                right: 0,
+                child: const Icon(
+                  Icons.favorite,
+                  color: Colors.red,
+                  size: 20,
+                ),
+              ),
+          ],
         ),
       ),
     );
