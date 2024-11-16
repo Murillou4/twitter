@@ -5,7 +5,7 @@ import 'package:giphy_picker/giphy_picker.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:provider/provider.dart';
 import 'package:twitter/app/twitter/providers/audio_provider.dart';
-import 'package:twitter/app/twitter/providers/database_provider.dart';
+import 'package:twitter/app/twitter/providers/user_provider.dart';
 import 'package:twitter/app/core/app_colors.dart';
 import 'package:twitter/app/twitter/services/database_service.dart';
 import 'package:twitter/app/twitter/widgets/audio_player_widget.dart';

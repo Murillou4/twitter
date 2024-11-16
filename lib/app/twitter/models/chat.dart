@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'message.dart'; // Importe a classe Message
 
@@ -38,6 +39,15 @@ class Chat {
       'participants': participants,
       'lastMessage': lastMessage?.toMap(),
     };
+  }
+
+  factory Chat.fromJson(String json) {
+    final Map<String, dynamic> map = jsonDecode(json);
+    return Chat(
+      chatId: map['chatId'],
+      participants: List<String>.from(map['participants']),
+      lastMessage: Message.fromMap(map['lastMessage']),
+    );
   }
 
   String getOtherParticipantId(String currentUserId) {

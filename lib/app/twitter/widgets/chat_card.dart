@@ -2,12 +2,10 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:gap/gap.dart';
-import 'package:provider/provider.dart';
 import 'package:twitter/app/core/app_colors.dart';
 import 'package:twitter/app/twitter/models/chat.dart';
 import 'package:twitter/app/twitter/models/user_profile.dart';
 import 'package:twitter/app/twitter/pages/chat/pages/chat_page.dart';
-import 'package:twitter/app/twitter/providers/database_provider.dart';
 import 'package:twitter/app/twitter/services/database_service.dart';
 import 'package:twitter/app/twitter/src/date_service.dart';
 
@@ -23,10 +21,6 @@ class ChatCard extends StatefulWidget {
 }
 
 class _ChatCardState extends State<ChatCard> {
-  late final databaseProvider = Provider.of<DatabaseProvider>(
-    context,
-    listen: false,
-  );
   final currentUserId = FirebaseAuth.instance.currentUser!.uid;
 
   final _db = DatabaseService();

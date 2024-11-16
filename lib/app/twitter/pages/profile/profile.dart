@@ -9,7 +9,7 @@ import 'package:provider/provider.dart';
 import 'package:twitter/app/twitter/models/chat.dart';
 import 'package:twitter/app/twitter/models/post.dart';
 import 'package:twitter/app/twitter/pages/chat/pages/chat_page.dart';
-import 'package:twitter/app/twitter/providers/database_provider.dart';
+import 'package:twitter/app/twitter/providers/user_provider.dart';
 import 'package:twitter/app/core/app_colors.dart';
 import 'package:twitter/app/twitter/models/user_profile.dart';
 import 'package:twitter/app/twitter/pages/auth/services/auth_service.dart';
@@ -36,12 +36,11 @@ class Profile extends StatefulWidget {
 class _ProfileState extends State<Profile> {
   late UserProfile user = widget.user;
   final _auth = AuthService();
-  late final databaseProvider =
-      Provider.of<DatabaseProvider>(context, listen: false);
-  late final listeningProvider = Provider.of<DatabaseProvider>(context);
+  late final userProvider = Provider.of<UserProvider>(context, listen: false);
+  late final listeningProvider = Provider.of<UserProvider>(context);
   final _db = DatabaseService();
   final TextEditingController bioController = TextEditingController();
-
+  final ScrollController _scrollController = ScrollController();
   Future<Chat> getChat() async {
     final currentUserId = FirebaseAuth.instance.currentUser!.uid;
     final db = DatabaseService();
@@ -71,6 +70,7 @@ class _ProfileState extends State<Profile> {
       final gifUrl = gif.images.original!.url;
       final gifFile = await downloadGif(gifUrl!);
       await _db.updateUserProfileImageInFirebase(gifFile);
+
       await listeningProvider.initLoggedUserInfo();
       mounted ? hideLoadingCircle(context) : null;
       return;
@@ -140,7 +140,7 @@ class _ProfileState extends State<Profile> {
                   return;
                 }
 
-                await databaseProvider.updateUserBio(bioController.text);
+                await userProvider.updateUserBio(bioController.text);
                 setState(() {
                   user = UserProfile(
                     uid: widget.user.uid,
@@ -168,7 +168,7 @@ class _ProfileState extends State<Profile> {
   @override
   Widget build(BuildContext context) {
     String photoUrl = listeningProvider.loggedUserInfo?.photoUrl ?? '';
-    return Consumer<DatabaseProvider>(builder: (context, value, child) {
+    return Consumer<UserProvider>(builder: (context, value, child) {
       return Scaffold(
         backgroundColor: AppColors.background,
         appBar: AppBar(
@@ -265,374 +265,382 @@ class _ProfileState extends State<Profile> {
 
                           return Padding(
                             padding: const EdgeInsets.symmetric(horizontal: 25),
-                            child: SingleChildScrollView(
-                              child: Column(
-                                mainAxisAlignment: MainAxisAlignment.start,
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  widget.user.uid != _auth.getCurrentUserUid()
-                                      ? Align(
-                                          alignment: Alignment.topRight,
-                                          child: IconButton(
-                                            onPressed: () async {
-                                              final chat = await getChat();
-                                              if (!context.mounted) return;
-                                              await Navigator.push(
-                                                context,
-                                                PageRouteBuilder(
-                                                  pageBuilder: (context,
-                                                          animation1,
-                                                          animation2) =>
-                                                      ChatPage(
-                                                    otherUser: widget.user,
-                                                    chat: chat,
-                                                  ),
-                                                  transitionDuration: Duration
-                                                      .zero, // Duração da animação
-                                                  reverseTransitionDuration:
-                                                      Duration
-                                                          .zero, // Duração da animação ao voltar
+                            child: Column(
+                              mainAxisAlignment: MainAxisAlignment.start,
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                widget.user.uid != _auth.getCurrentUserUid()
+                                    ? Align(
+                                        alignment: Alignment.topRight,
+                                        child: IconButton(
+                                          onPressed: () async {
+                                            final chat = await getChat();
+                                            if (!context.mounted) return;
+                                            await Navigator.push(
+                                              context,
+                                              PageRouteBuilder(
+                                                pageBuilder: (context,
+                                                        animation1,
+                                                        animation2) =>
+                                                    ChatPage(
+                                                  otherUser: widget.user,
+                                                  chat: chat,
                                                 ),
+                                                transitionDuration: Duration
+                                                    .zero, // Duração da animação
+                                                reverseTransitionDuration: Duration
+                                                    .zero, // Duração da animação ao voltar
+                                              ),
+                                            );
+                                          },
+                                          icon: const Icon(
+                                            Icons.chat_rounded,
+                                            color: AppColors.white,
+                                            size: 30,
+                                          ),
+                                        ),
+                                      )
+                                    : Container(),
+                                const Gap(20),
+                                Center(
+                                  child: Container(
+                                    width: 130,
+                                    height: 130,
+                                    alignment: Alignment.center,
+                                    decoration: const BoxDecoration(
+                                      borderRadius: BorderRadius.all(
+                                        Radius.circular(100),
+                                      ),
+                                      color: AppColors.lightGrey,
+                                    ),
+                                    child: Stack(
+                                      children: [
+                                        ClipRRect(
+                                          borderRadius:
+                                              BorderRadius.circular(100),
+                                          child: Image.network(
+                                            width: 130,
+                                            height: 130,
+                                            widget.user.uid ==
+                                                    _auth.getCurrentUserUid()
+                                                ? photoUrl
+                                                : user.photoUrl,
+                                            fit: BoxFit.cover,
+                                            errorBuilder:
+                                                (context, error, stackTrace) {
+                                              return const Icon(
+                                                Icons.person,
                                               );
                                             },
-                                            icon: const Icon(
-                                              Icons.chat_rounded,
-                                              color: AppColors.white,
-                                              size: 30,
-                                            ),
                                           ),
-                                        )
-                                      : Container(),
-                                  const Gap(20),
-                                  Center(
-                                    child: Container(
-                                      width: 130,
-                                      height: 130,
-                                      alignment: Alignment.center,
-                                      decoration: const BoxDecoration(
-                                        borderRadius: BorderRadius.all(
-                                          Radius.circular(100),
                                         ),
-                                        color: AppColors.lightGrey,
-                                      ),
-                                      child: Stack(
-                                        children: [
-                                          ClipRRect(
-                                            borderRadius:
-                                                BorderRadius.circular(100),
-                                            child: Image.network(
-                                              width: 130,
-                                              height: 130,
-                                              widget.user.uid ==
-                                                      _auth.getCurrentUserUid()
-                                                  ? photoUrl
-                                                  : user.photoUrl,
-                                              fit: BoxFit.cover,
-                                              errorBuilder:
-                                                  (context, error, stackTrace) {
-                                                return const Icon(
-                                                  Icons.person,
-                                                );
-                                              },
-                                            ),
-                                          ),
-                                          widget.user.uid ==
-                                                  _auth.getCurrentUserUid()
-                                              ? Positioned(
-                                                  bottom: 95,
-                                                  left: 95,
-                                                  child: GestureDetector(
-                                                    onTap: () async {
-                                                      await showDialog(
-                                                        context: context,
-                                                        builder: (context) {
-                                                          return GalleryOrCameraCard(
-                                                              isGif: true,
-                                                              onChoose: (source,
-                                                                  [isGif =
-                                                                      false]) async {
-                                                                await updateProfileImage(
-                                                                    source,
-                                                                    isGif);
-                                                                context.mounted
-                                                                    ? Navigator.of(
-                                                                            context)
-                                                                        .pop()
-                                                                    : null;
-                                                              });
-                                                        },
-                                                      );
-                                                    },
-                                                    child: Container(
-                                                      width: 35,
-                                                      height: 35,
-                                                      decoration:
-                                                          const BoxDecoration(
-                                                        color: AppColors.grey,
-                                                        borderRadius:
-                                                            BorderRadius.all(
-                                                          Radius.circular(100),
-                                                        ),
-                                                      ),
-                                                      child: const Icon(
-                                                        Icons.edit,
-                                                        color: AppColors.white,
-                                                        size: 20,
+                                        widget.user.uid ==
+                                                _auth.getCurrentUserUid()
+                                            ? Positioned(
+                                                bottom: 95,
+                                                left: 95,
+                                                child: GestureDetector(
+                                                  onTap: () async {
+                                                    await showDialog(
+                                                      context: context,
+                                                      builder: (context) {
+                                                        return GalleryOrCameraCard(
+                                                            isGif: true,
+                                                            onChoose: (source,
+                                                                [isGif =
+                                                                    false]) async {
+                                                              await updateProfileImage(
+                                                                  source,
+                                                                  isGif);
+                                                              context.mounted
+                                                                  ? Navigator.of(
+                                                                          context)
+                                                                      .pop()
+                                                                  : null;
+                                                            });
+                                                      },
+                                                    );
+                                                  },
+                                                  child: Container(
+                                                    width: 35,
+                                                    height: 35,
+                                                    decoration:
+                                                        const BoxDecoration(
+                                                      color: AppColors.grey,
+                                                      borderRadius:
+                                                          BorderRadius.all(
+                                                        Radius.circular(100),
                                                       ),
                                                     ),
+                                                    child: const Icon(
+                                                      Icons.edit,
+                                                      color: AppColors.white,
+                                                      size: 20,
+                                                    ),
                                                   ),
+                                                ),
+                                              )
+                                            : Container(),
+                                      ],
+                                    ),
+                                  ),
+                                ),
+                                const Gap(15),
+                                widget.user.uid != _auth.getCurrentUserUid()
+                                    ? Row(
+                                        mainAxisAlignment:
+                                            MainAxisAlignment.spaceAround,
+                                        children: [
+                                          !isCurrentUserFollowing
+                                              ? MyButton(
+                                                  buttonColor:
+                                                      AppColors.twitterBlue,
+                                                  textColor: AppColors.white,
+                                                  text: 'Seguir',
+                                                  onTap: () async {
+                                                    await _db
+                                                        .followUserInFirebase(
+                                                            widget.user);
+                                                  },
+                                                  width: 100,
+                                                )
+                                              : MyButton(
+                                                  buttonColor: AppColors.white,
+                                                  textColor:
+                                                      AppColors.background,
+                                                  text: 'Deixar de seguir',
+                                                  onTap: () async {
+                                                    await _db
+                                                        .unfollowUserInFirebase(
+                                                            widget.user.uid);
+                                                  },
+                                                  width: 130,
+                                                ),
+                                          !isBlockedByCurrentUser
+                                              ? MyButton(
+                                                  buttonColor: AppColors.grey,
+                                                  textColor: AppColors.white,
+                                                  text: 'Bloquear',
+                                                  onTap: () async {
+                                                    await showConfirmationBox(
+                                                        context: context,
+                                                        title:
+                                                            'Bloquear usuário ${widget.user.name}',
+                                                        content:
+                                                            'Tem certeza que deseja bloquear este usuário?',
+                                                        confirmationText:
+                                                            'Bloquear',
+                                                        onConfirm: () async {
+                                                          await _db
+                                                              .blockUserInFirebase(
+                                                                  widget.user);
+                                                        });
+                                                    context.mounted
+                                                        ? ScaffoldMessenger.of(
+                                                                context)
+                                                            .showSnackBar(
+                                                            const SnackBar(
+                                                              content: Text(
+                                                                'Usuário bloqueado com sucesso!',
+                                                              ),
+                                                              behavior:
+                                                                  SnackBarBehavior
+                                                                      .floating,
+                                                            ),
+                                                          )
+                                                        : null;
+                                                    context.mounted
+                                                        ? Navigator.of(context)
+                                                            .pop()
+                                                        : null;
+                                                  },
+                                                  width: 100,
                                                 )
                                               : Container(),
                                         ],
-                                      ),
+                                      )
+                                    : Container(),
+                                ListTile(
+                                  contentPadding: EdgeInsets.zero,
+                                  title: Text(
+                                    user.name,
+                                    style: const TextStyle(
+                                      color: AppColors.white,
+                                      fontSize: 20,
+                                      fontWeight: FontWeight.w500,
                                     ),
                                   ),
-                                  const Gap(15),
-                                  widget.user.uid != _auth.getCurrentUserUid()
-                                      ? Row(
-                                          mainAxisAlignment:
-                                              MainAxisAlignment.spaceAround,
-                                          children: [
-                                            !isCurrentUserFollowing
-                                                ? MyButton(
-                                                    buttonColor:
-                                                        AppColors.twitterBlue,
-                                                    textColor: AppColors.white,
-                                                    text: 'Seguir',
-                                                    onTap: () async {
-                                                      await _db
-                                                          .followUserInFirebase(
-                                                              widget.user);
-                                                    },
-                                                    width: 100,
-                                                  )
-                                                : MyButton(
-                                                    buttonColor:
-                                                        AppColors.white,
-                                                    textColor:
-                                                        AppColors.background,
-                                                    text: 'Deixar de seguir',
-                                                    onTap: () async {
-                                                      await _db
-                                                          .unfollowUserInFirebase(
-                                                              widget.user.uid);
-                                                    },
-                                                    width: 130,
-                                                  ),
-                                            !isBlockedByCurrentUser
-                                                ? MyButton(
-                                                    buttonColor: AppColors.grey,
-                                                    textColor: AppColors.white,
-                                                    text: 'Bloquear',
-                                                    onTap: () async {
-                                                      await showConfirmationBox(
-                                                          context: context,
-                                                          title:
-                                                              'Bloquear usuário ${widget.user.name}',
-                                                          content:
-                                                              'Tem certeza que deseja bloquear este usuário?',
-                                                          confirmationText:
-                                                              'Bloquear',
-                                                          onConfirm: () async {
-                                                            await _db
-                                                                .blockUserInFirebase(
-                                                                    widget
-                                                                        .user);
-                                                          });
-                                                      context.mounted
-                                                          ? ScaffoldMessenger
-                                                                  .of(context)
-                                                              .showSnackBar(
-                                                              const SnackBar(
-                                                                content: Text(
-                                                                  'Usuário bloqueado com sucesso!',
-                                                                ),
-                                                                behavior:
-                                                                    SnackBarBehavior
-                                                                        .floating,
-                                                              ),
-                                                            )
-                                                          : null;
-                                                      context.mounted
-                                                          ? Navigator.of(
-                                                                  context)
-                                                              .pop()
-                                                          : null;
-                                                    },
-                                                    width: 100,
-                                                  )
-                                                : Container(),
-                                          ],
+                                  subtitle: Text(
+                                    '@${user.username}',
+                                    style: const TextStyle(
+                                      color: AppColors.lightGrey,
+                                      fontSize: 16,
+                                      fontWeight: FontWeight.w500,
+                                    ),
+                                  ),
+                                ),
+                                ListTile(
+                                  contentPadding: EdgeInsets.zero,
+                                  minVerticalPadding: 0,
+                                  title: Text(
+                                    user.bio.isEmpty
+                                        ? user.uid == _auth.getCurrentUserUid()
+                                            ? 'Adicione uma bio'
+                                            : '${user.name} ainda não possui uma bio'
+                                        : user.bio,
+                                    style: TextStyle(
+                                      color: user.bio.isEmpty
+                                          ? AppColors.lightGrey
+                                          : AppColors.white,
+                                      fontSize: 16,
+                                    ),
+                                  ),
+                                  trailing: widget.user.uid ==
+                                          _auth.getCurrentUserUid()
+                                      ? GestureDetector(
+                                          onTap: updateUserBio,
+                                          child: const Icon(
+                                            Icons.edit,
+                                            color: AppColors.lightGrey,
+                                          ),
                                         )
-                                      : Container(),
-                                  ListTile(
-                                    contentPadding: EdgeInsets.zero,
-                                    title: Text(
-                                      user.name,
-                                      style: const TextStyle(
-                                        color: AppColors.white,
-                                        fontSize: 20,
-                                        fontWeight: FontWeight.w500,
-                                      ),
+                                      : null,
+                                ),
+                                Row(
+                                  crossAxisAlignment: CrossAxisAlignment.center,
+                                  children: [
+                                    const Icon(
+                                      Icons.calendar_month_sharp,
+                                      color: AppColors.lightGrey,
                                     ),
-                                    subtitle: Text(
-                                      '@${user.username}',
-                                      style: const TextStyle(
-                                        color: AppColors.lightGrey,
-                                        fontSize: 16,
-                                        fontWeight: FontWeight.w500,
-                                      ),
-                                    ),
-                                  ),
-                                  ListTile(
-                                    contentPadding: EdgeInsets.zero,
-                                    minVerticalPadding: 0,
-                                    title: Text(
-                                      user.bio.isEmpty
-                                          ? 'Você ainda não possui uma bio'
-                                          : user.bio,
+                                    const Gap(5),
+                                    const Text(
+                                      'Entrou',
                                       style: TextStyle(
-                                        color: user.bio.isEmpty
-                                            ? AppColors.lightGrey
-                                            : AppColors.white,
-                                        fontSize: 16,
-                                      ),
-                                    ),
-                                    trailing: widget.user.uid ==
-                                            _auth.getCurrentUserUid()
-                                        ? GestureDetector(
-                                            onTap: updateUserBio,
-                                            child: const Icon(
-                                              Icons.edit,
-                                              color: AppColors.lightGrey,
-                                            ),
-                                          )
-                                        : null,
-                                  ),
-                                  Row(
-                                    crossAxisAlignment:
-                                        CrossAxisAlignment.center,
-                                    children: [
-                                      const Icon(
-                                        Icons.calendar_month_sharp,
                                         color: AppColors.lightGrey,
                                       ),
-                                      const Gap(5),
-                                      const Text(
-                                        'Entrou',
-                                        style: TextStyle(
-                                          color: AppColors.lightGrey,
-                                        ),
+                                    ),
+                                    const Gap(5),
+                                    Text(
+                                      DateService.monthAndYear(
+                                        widget.user.timestamp,
                                       ),
-                                      const Gap(5),
-                                      Text(
-                                        DateService.monthAndYear(
-                                          widget.user.timestamp,
+                                      style: const TextStyle(
+                                        color: AppColors.lightGrey,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                                const Gap(10),
+                                GestureDetector(
+                                  onTap: () {
+                                    Navigator.push(
+                                      context,
+                                      PageRouteBuilder(
+                                        pageBuilder:
+                                            (context, animation1, animation2) =>
+                                                FollowPage(
+                                          followersUsers: followersUsers,
+                                          followingUsers: followingUsers,
                                         ),
+                                        transitionDuration: Duration
+                                            .zero, // Duração da animação
+                                        reverseTransitionDuration: Duration
+                                            .zero, // Duração da animação ao voltar
+                                      ),
+                                    );
+                                  },
+                                  child: Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      Text(
+                                        '$followingCount Seguindo',
                                         style: const TextStyle(
                                           color: AppColors.lightGrey,
+                                          fontSize: 16,
+                                          fontWeight: FontWeight.w500,
+                                        ),
+                                      ),
+                                      const Gap(20),
+                                      Text(
+                                        '$followersCount Seguidores',
+                                        style: const TextStyle(
+                                          color: AppColors.lightGrey,
+                                          fontSize: 16,
+                                          fontWeight: FontWeight.w500,
                                         ),
                                       ),
                                     ],
                                   ),
-                                  const Gap(10),
-                                  GestureDetector(
-                                    onTap: () {
-                                      Navigator.push(
-                                        context,
-                                        PageRouteBuilder(
-                                          pageBuilder: (context, animation1,
-                                                  animation2) =>
-                                              FollowPage(
-                                            followersUsers: followersUsers,
-                                            followingUsers: followingUsers,
+                                ),
+                                const Gap(20),
+                                const Center(
+                                  child: Text(
+                                    'Tweets',
+                                    style: TextStyle(
+                                      color: AppColors.white,
+                                      fontSize: 20,
+                                    ),
+                                  ),
+                                ),
+                                const Gap(20),
+                                if (!isBlockedByCurrentUser)
+                                  StreamBuilder<List<Post>>(
+                                    stream: _db.getPostsStream(),
+                                    builder: (context, snapshot) {
+                                      final posts = snapshot.data
+                                              ?.where((p) =>
+                                                  p.uid == widget.user.uid)
+                                              .toList() ??
+                                          [];
+
+                                      if (posts.isEmpty) {
+                                        return const Center(
+                                          child: Text(
+                                            'Nenhum post encontrado',
+                                            style: TextStyle(
+                                              color: AppColors.white,
+                                              fontSize: 16,
+                                            ),
                                           ),
-                                          transitionDuration: Duration
-                                              .zero, // Duração da animação
-                                          reverseTransitionDuration: Duration
-                                              .zero, // Duração da animação ao voltar
+                                        );
+                                      }
+
+                                      return Expanded(
+                                        child: RawScrollbar(
+                                          thumbVisibility: true,
+                                          trackVisibility: true,
+                                          radius: const Radius.circular(10),
+                                          thumbColor:
+                                              AppColors.white.withOpacity(0.5),
+                                          controller: _scrollController,
+                                          thickness: 4,
+                                          child: ListView.builder(
+                                            controller: _scrollController,
+                                            shrinkWrap: true,
+                                            itemCount: posts.length,
+                                            itemBuilder: (context, index) {
+                                              return PostCard(
+                                                post: posts[index],
+                                                user: widget.user,
+                                              );
+                                            },
+                                          ),
                                         ),
                                       );
                                     },
-                                    child: Row(
-                                      mainAxisSize: MainAxisSize.min,
-                                      children: [
-                                        Text(
-                                          '$followingCount Seguindo',
-                                          style: const TextStyle(
-                                            color: AppColors.lightGrey,
-                                            fontSize: 16,
-                                            fontWeight: FontWeight.w500,
-                                          ),
-                                        ),
-                                        const Gap(20),
-                                        Text(
-                                          '$followersCount Seguidores',
-                                          style: const TextStyle(
-                                            color: AppColors.lightGrey,
-                                            fontSize: 16,
-                                            fontWeight: FontWeight.w500,
-                                          ),
-                                        ),
-                                      ],
-                                    ),
                                   ),
-                                  const Gap(20),
+                                if (isBlockedByCurrentUser)
                                   const Center(
                                     child: Text(
-                                      'Tweets',
+                                      'Você bloqueou este usuário',
                                       style: TextStyle(
                                         color: AppColors.white,
-                                        fontSize: 20,
+                                        fontSize: 16,
                                       ),
                                     ),
                                   ),
-                                  const Gap(20),
-                                  if (!isBlockedByCurrentUser)
-                                    StreamBuilder<List<Post>>(
-                                      stream: _db.getPostsStream(),
-                                      builder: (context, snapshot) {
-                                        final posts = snapshot.data
-                                                ?.where((p) =>
-                                                    p.uid == widget.user.uid)
-                                                .toList() ??
-                                            [];
-
-                                        if (posts.isEmpty) {
-                                          return const Center(
-                                            child: Text(
-                                              'Nenhum post encontrado',
-                                              style: TextStyle(
-                                                color: AppColors.white,
-                                                fontSize: 16,
-                                              ),
-                                            ),
-                                          );
-                                        }
-
-                                        return ListView.builder(
-                                          shrinkWrap: true,
-                                          itemCount: posts.length,
-                                          itemBuilder: (context, index) {
-                                            return PostCard(
-                                              post: posts[index],
-                                            );
-                                          },
-                                        );
-                                      },
-                                    ),
-                                  if (isBlockedByCurrentUser)
-                                    const Center(
-                                      child: Text(
-                                        'Você bloqueou este usuário',
-                                        style: TextStyle(
-                                          color: AppColors.white,
-                                          fontSize: 16,
-                                        ),
-                                      ),
-                                    ),
-                                ],
-                              ),
+                              ],
                             ),
                           );
                         });

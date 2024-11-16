@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:cloud_firestore/cloud_firestore.dart';
 
 class Comment {
@@ -53,4 +55,5 @@ class Comment {
       'likedBy': likedBy,
     };
   }
+
 }

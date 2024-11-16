@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:twitter/app/twitter/models/comment.dart';
 
@@ -8,10 +10,10 @@ class Post {
   final String username;
   final String message;
   final Timestamp timestamp;
-  final String postImage;
-  final String postAudio;
+  String postImage;
+  String postAudio;
   int likeCount;
-  final List<String> likedBy;
+  List<String> likedBy;
   List<Comment> comments;
 
   Post({
@@ -35,7 +37,7 @@ class Post {
       name: doc['name'],
       username: doc['username'],
       message: doc['message'],
-      timestamp: doc['timestamp'],
+      timestamp: doc['timestamp'] ?? Timestamp.now(),
       postImage: doc['postImage'],
       postAudio: doc['postAudio'],
       likeCount: doc['likeCount'],
@@ -59,4 +61,5 @@ class Post {
       'comments': comments.map((comment) => comment.toMap()).toList(),
     };
   }
+
 }

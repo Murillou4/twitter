@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:twitter/app/twitter/pages/auth/services/auth_service.dart';
-import 'package:twitter/app/twitter/providers/database_provider.dart';
+import 'package:twitter/app/twitter/providers/posts_provider.dart';
+import 'package:twitter/app/twitter/providers/user_provider.dart';
 import 'package:twitter/app/twitter/services/database_service.dart';
 import 'package:twitter/app/twitter/widgets/my_loading_circle.dart';
 
@@ -26,6 +27,8 @@ class SignupController {
   Future<void> signup(BuildContext context) async {
     final _auth = AuthService();
     final _db = DatabaseService();
+    final postsProvider = Provider.of<PostsProvider>(context, listen: false);
+    final userProvider = Provider.of<UserProvider>(context, listen: false);
     if (nameController.text.isEmpty ||
         emailController.text.isEmpty ||
         passwordController.text.isEmpty ||
@@ -47,8 +50,8 @@ class SignupController {
       await _auth.signup(emailController.text, passwordController.text);
       await _db.saveUserInfoInFirebase(
           name: nameController.text, email: emailController.text);
-      await _auth.logout();
-      await _auth.login(emailController.text, passwordController.text);
+      await userProvider.initLoggedUserInfo();
+      postsProvider.init();
       if (!context.mounted) return;
       hideLoadingCircle(context);
       clearControllers();

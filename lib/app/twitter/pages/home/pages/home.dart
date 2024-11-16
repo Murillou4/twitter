@@ -3,7 +3,8 @@ import 'package:provider/provider.dart';
 import 'package:super_sliver_list/super_sliver_list.dart';
 import 'package:twitter/app/twitter/models/post.dart';
 import 'package:twitter/app/twitter/models/user_profile.dart';
-import 'package:twitter/app/twitter/providers/database_provider.dart';
+import 'package:twitter/app/twitter/providers/posts_provider.dart';
+import 'package:twitter/app/twitter/providers/user_provider.dart';
 import 'package:twitter/app/core/app_colors.dart';
 import 'package:twitter/app/twitter/services/database_service.dart';
 
@@ -19,14 +20,9 @@ class Home extends StatefulWidget {
 }
 
 class _HomeState extends State<Home> {
-  late final databaseProvider =
-      Provider.of<DatabaseProvider>(context, listen: false);
-
-  late final listeningProvider =
-      Provider.of<DatabaseProvider>(context, listen: true);
+  final DatabaseService _db = DatabaseService();
   final TextEditingController postController = TextEditingController();
 
-  final _dbService = DatabaseService();
   @override
   Widget build(BuildContext context) {
     return DefaultTabController(
@@ -61,134 +57,96 @@ class _HomeState extends State<Home> {
             ],
           ),
         ),
-        body: StreamBuilder<List<UserProfile>>(
-            stream: _dbService.getBlockedUsersStream(),
-            builder: (context, blockedUsersSnapshot) {
-              return StreamBuilder<List<Post>>(
-                  stream: _dbService.getPostsStream(),
-                  builder: (context, postsSnapshot) {
-                    final blockedUsers = blockedUsersSnapshot.data ?? [];
-                    List<String> blockedUsersIds =
-                        blockedUsers.map((user) => user.uid).toList();
-                    List<Post> posts = postsSnapshot.data ?? [];
-                    posts = posts
-                        .where((post) => !blockedUsersIds.contains(post.uid))
-                        .toList();
-                    return TabBarView(
-                      children: [
-                        posts.isEmpty
-                            ? const Center(
-                                child: Text(
-                                  'Nenhum tweet',
-                                  style: TextStyle(
-                                    color: AppColors.white,
-                                    fontSize: 30,
-                                  ),
-                                ),
-                              )
-                            : SuperListView.separated(
-                                key: const PageStorageKey('posts_list'),
-                                restorationId: 'home_page',
-                                itemBuilder: (context, index) {
-                                  return PostCard(post: posts[index]);
-                                },
-                                separatorBuilder: (context, index) =>
-                                    const Divider(
-                                  color: AppColors.lightGrey,
-                                  thickness: 0.5,
-                                ),
-                                itemCount: posts.length,
-                              ),
-
-                        // posts.isEmpty
-                        //     ? Center(
-                        //         child: Column(
-                        //           mainAxisSize: MainAxisSize.min,
-                        //           children: [
-                        //             const Text(
-                        //               'Nenhum tweet',
-                        //               style: TextStyle(
-                        //                 color: AppColors.white,
-                        //                 fontSize: 30,
-                        //               ),
-                        //             ),
-                        //             IconButton(
-                        //               onPressed: () async {
-                        //                 await databaseProvider.init();
-                        //               },
-                        //               icon: const Icon(
-                        //                 Icons.refresh,
-                        //                 color: AppColors.white,
-                        //                 size: 50,
-                        //               ),
-                        //             ),
-                        //           ],
-                        //         ),
-                        //       )
-                        //     : RefreshIndicator(
-                        //         onRefresh: () async {
-                        //           await databaseProvider.init();
-                        //         },
-                        //         child: SuperListView.separated(
-                        //           listController: listController,
-                        //           controller: scrollController,
-                        //           restorationId: 'home_page',
-                        //           itemBuilder: (context, index) {
-                        //             final post = posts[index];
-                        //             return PostCard(
-                        //               post: post,
-                        //             );
-                        //           },
-                        //           separatorBuilder: (context, index) => const Divider(
-                        //             color: AppColors.lightGrey,
-                        //             thickness: 1,
-                        //           ),
-                        //           itemCount: posts.length,
-                        //         ),
-                        //       ),
-
-                        StreamBuilder<List<UserProfile>>(
-                          stream: _dbService.getUserFollowingStream(
-                              databaseProvider.loggedUserInfo!.uid),
-                          builder: (context, followingPostsSnapshot) {
-                            List<String> followingUids = followingPostsSnapshot
-                                    .data
-                                    ?.map((user) => user.uid)
-                                    .toList() ??
-                                [];
-                            List<Post> followingPosts = posts
-                                .where(
-                                    (post) => followingUids.contains(post.uid))
-                                .toList();
-
-                            return followingPosts.isEmpty
-                                ? const Center(
-                                    child: Text(
-                                      'Nenhum tweet',
-                                      style: TextStyle(
-                                        color: AppColors.white,
-                                        fontSize: 30,
-                                      ),
-                                    ),
-                                  )
-                                : ListView.separated(
-                                    itemBuilder: (context, index) {
-                                      return PostCard(
-                                          post: followingPosts[index]);
-                                    },
-                                    separatorBuilder: (context, index) =>
-                                        const Divider(
-                                      color: AppColors.lightGrey,
-                                      thickness: 0.5,
-                                    ),
-                                    itemCount: followingPosts.length,
-                                  );
-                          },
-                        ),
-                      ],
+        body: TabBarView(
+          children: [
+            Consumer<PostsProvider>(
+              builder: (context, postsProvider, child) {
+                final posts = postsProvider.posts
+                    .where(
+                        (p) => !postsProvider.blockedUsersIds.contains(p.uid))
+                    .toList();
+                if (posts.isEmpty) {
+                  return const Center(
+                    child: Text(
+                      'Nenhum post encontrado',
+                      style: TextStyle(
+                        color: AppColors.lightGrey,
+                        fontSize: 20,
+                      ),
+                    ),
+                  );
+                }
+                return ListView.separated(
+                  shrinkWrap: true,
+                  itemBuilder: (context, index) {
+                    return FutureBuilder<UserProfile?>(
+                      future: _db.getUserInfoFromFirebase(posts[index].uid),
+                      builder: (context, snapshot) {
+                        if (snapshot.hasData) {
+                          return PostCard(
+                              post: posts[index], user: snapshot.data!);
+                        }
+                        return const Center(
+                          child: CircularProgressIndicator(
+                            color: AppColors.white,
+                          ),
+                        );
+                      },
                     );
-                  });
-            }),
+                  },
+                  separatorBuilder: (context, index) => Divider(
+                    thickness: 2,
+                    color: AppColors.lightGrey,
+                  ),
+                  itemCount: posts.length,
+                );
+              },
+            ),
+            Consumer<PostsProvider>(
+              builder: (context, postsProvider, child) {
+                final followingPosts = postsProvider.followingPosts;
+                if (followingPosts.isEmpty) {
+                  return const Center(
+                    child: Text(
+                      'Nenhum post encontrado',
+                      style: TextStyle(
+                        color: AppColors.lightGrey,
+                        fontSize: 20,
+                      ),
+                    ),
+                  );
+                }
+                return ListView.separated(
+                  shrinkWrap: true,
+                  itemBuilder: (context, index) {
+                    return FutureBuilder<UserProfile?>(
+                      future: _db
+                          .getUserInfoFromFirebase(followingPosts[index].uid),
+                      builder: (context, snapshot) {
+                        if (snapshot.hasData) {
+                          return PostCard(
+                              post: followingPosts[index],
+                              user: snapshot.data!);
+                        }
+                        return const Center(
+                          child: CircularProgressIndicator(
+                            color: AppColors.white,
+                          ),
+                        );
+                      },
+                    );
+                  },
+                  separatorBuilder: (context, index) => Divider(
+                    thickness: 2,
+                    color: AppColors.lightGrey,
+                  ),
+                  itemCount: followingPosts.length,
+                );
+              },
+            ),
+          ],
+        ),
+
         // Não deixar ele tão colado na direita
         floatingActionButtonLocation: FloatingActionButtonLocation.endDocked,
         floatingActionButton: Padding(

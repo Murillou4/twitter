@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:twitter/app/twitter/pages/profile/profile.dart';
-import 'package:twitter/app/twitter/providers/database_provider.dart';
+import 'package:twitter/app/twitter/providers/user_provider.dart';
 
 import 'package:twitter/app/core/app_colors.dart';
 import 'package:twitter/app/twitter/widgets/user_card.dart';
@@ -19,7 +19,7 @@ class _SearchPageState extends State<SearchPage> {
 
   @override
   Widget build(BuildContext context) {
-    final listeningProvider = Provider.of<DatabaseProvider>(context);
+    final listeningProvider = Provider.of<UserProvider>(context);
     return Scaffold(
       backgroundColor: AppColors.background,
       appBar: AppBar(

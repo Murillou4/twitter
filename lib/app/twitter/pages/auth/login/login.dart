@@ -69,7 +69,9 @@ class _LoginState extends State<Login> {
               ),
               const Gap(20),
               GestureDetector(
-                onTap: () {},
+                onTap: () async {
+                  await _loginController.forgetPassword(context);
+                },
                 child: const Text(
                   'Esqueceu sua senha?',
                   style: TextStyle(

@@ -7,7 +7,7 @@ import 'package:provider/provider.dart';
 import 'package:twitter/app/twitter/models/post.dart';
 import 'package:twitter/app/twitter/pages/auth/services/auth_service.dart';
 import 'package:twitter/app/twitter/services/database_service.dart';
-import 'package:twitter/app/twitter/providers/database_provider.dart';
+import 'package:twitter/app/twitter/providers/user_provider.dart';
 import 'package:twitter/app/core/app_colors.dart';
 import 'package:twitter/app/twitter/models/comment.dart';
 import 'package:twitter/app/twitter/models/user_profile.dart';

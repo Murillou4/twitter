@@ -3,7 +3,7 @@ import 'package:provider/provider.dart';
 import 'package:twitter/app/twitter/models/chat.dart';
 import 'package:twitter/app/twitter/models/user_profile.dart';
 import 'package:twitter/app/twitter/pages/chat/pages/chats_page.dart';
-import 'package:twitter/app/twitter/providers/database_provider.dart';
+import 'package:twitter/app/twitter/providers/user_provider.dart';
 import 'package:twitter/app/core/app_colors.dart';
 
 import 'package:gap/gap.dart';
@@ -27,8 +27,7 @@ class MyDrawer extends StatefulWidget {
 class _MyDrawerState extends State<MyDrawer> {
   final _auth = AuthService();
   TextEditingController usernameController = TextEditingController();
-  late final databaseProvider =
-      Provider.of<DatabaseProvider>(context, listen: false);
+  late final userProvider = Provider.of<UserProvider>(context, listen: false);
 
   final _db = DatabaseService();
 
@@ -83,7 +82,7 @@ class _MyDrawerState extends State<MyDrawer> {
                   return;
                 }
 
-                await databaseProvider.updateUserName(usernameController.text);
+                await userProvider.updateUserName(usernameController.text);
                 usernameController.clear();
                 context.mounted ? Navigator.of(context).pop() : null;
               },
@@ -100,7 +99,8 @@ class _MyDrawerState extends State<MyDrawer> {
 
   @override
   Widget build(BuildContext context) {
-    return Consumer<DatabaseProvider>(
+    final currentUserUid = _auth.getCurrentUserUid();
+    return Consumer<UserProvider>(
       builder: (context, provider, child) {
         return Drawer(
           backgroundColor: AppColors.drawerBackground,
@@ -122,13 +122,13 @@ class _MyDrawerState extends State<MyDrawer> {
                       50,
                     ),
                   ),
-                  child: databaseProvider.loggedUserInfo != null
+                  child: userProvider.loggedUserInfo != null
                       ? ClipRRect(
                           borderRadius: BorderRadius.circular(50),
                           child: Image.network(
                             width: 45,
                             height: 45,
-                            databaseProvider.loggedUserInfo!.photoUrl,
+                            userProvider.loggedUserInfo!.photoUrl,
                             fit: BoxFit.cover,
                             errorBuilder: (context, error, stackTrace) {
                               return const Icon(
@@ -147,8 +147,8 @@ class _MyDrawerState extends State<MyDrawer> {
                 ListTile(
                   contentPadding: EdgeInsets.zero,
                   title: Text(
-                    databaseProvider.loggedUserInfo != null
-                        ? databaseProvider.loggedUserInfo!.name
+                    userProvider.loggedUserInfo != null
+                        ? userProvider.loggedUserInfo!.name
                         : 'User',
                     style: const TextStyle(
                       color: AppColors.white,
@@ -157,8 +157,8 @@ class _MyDrawerState extends State<MyDrawer> {
                     ),
                   ),
                   subtitle: Text(
-                    databaseProvider.loggedUserInfo != null
-                        ? '@${databaseProvider.loggedUserInfo!.username}'
+                    userProvider.loggedUserInfo != null
+                        ? '@${userProvider.loggedUserInfo!.username}'
                         : 'User',
                     style: const TextStyle(
                       color: AppColors.lightGrey,
@@ -176,14 +176,10 @@ class _MyDrawerState extends State<MyDrawer> {
                 ),
                 const MyDivider(),
                 StreamBuilder<List<UserProfile>>(
-                    stream: _db.getUserFollowingStream(
-                      databaseProvider.loggedUserInfo!.uid,
-                    ),
+                    stream: _db.getUserFollowingStream(currentUserUid),
                     builder: (context, followingSnapshot) {
                       return StreamBuilder<List<UserProfile>>(
-                          stream: _db.getUserFollowersStream(
-                            databaseProvider.loggedUserInfo!.uid,
-                          ),
+                          stream: _db.getUserFollowersStream(currentUserUid),
                           builder: (context, followersSnapshot) {
                             final followingUsers = followingSnapshot.data ?? [];
                             final followersUsers = followersSnapshot.data ?? [];
@@ -209,7 +205,7 @@ class _MyDrawerState extends State<MyDrawer> {
                                 mainAxisSize: MainAxisSize.min,
                                 children: [
                                   Text(
-                                    databaseProvider.loggedUserInfo != null
+                                    userProvider.loggedUserInfo != null
                                         ? '${followingUsers.length} Seguindo'
                                         : '0 Seguindo',
                                     style: const TextStyle(
@@ -220,7 +216,7 @@ class _MyDrawerState extends State<MyDrawer> {
                                   ),
                                   const Gap(20),
                                   Text(
-                                    databaseProvider.loggedUserInfo != null
+                                    userProvider.loggedUserInfo != null
                                         ? '${followersUsers.length} Seguidores'
                                         : '0 Seguidores',
                                     style: const TextStyle(
@@ -252,7 +248,7 @@ class _MyDrawerState extends State<MyDrawer> {
                       PageRouteBuilder(
                         pageBuilder: (context, animation1, animation2) =>
                             Profile(
-                          user: databaseProvider.loggedUserInfo!,
+                          user: userProvider.loggedUserInfo!,
                         ),
                         transitionDuration:
                             Duration.zero, // Duração da animação
@@ -270,8 +266,11 @@ class _MyDrawerState extends State<MyDrawer> {
                       final int unreadChats = chats
                           .where((chat) =>
                               chat.lastMessage != null &&
-                              !chat.lastMessage!.isRead)
+                              !chat.lastMessage!.isRead &&
+                              chat.lastMessage!.senderId !=
+                                  userProvider.loggedUserInfo!.uid)
                           .length;
+
                       return Row(
                         mainAxisSize: MainAxisSize.min,
                         crossAxisAlignment: CrossAxisAlignment.center,
@@ -360,7 +359,7 @@ class _MyDrawerState extends State<MyDrawer> {
                   text: 'Sair',
                   icon: Icons.logout,
                   onTap: () async {
-                    await _auth.logout();
+                    await _auth.logout(context);
                   },
                 ),
               ],

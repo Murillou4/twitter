@@ -222,7 +222,9 @@ class DatabaseService {
         'comments': currentComments,
       });
     } catch (e) {
-      print(e);
+      if (kDebugMode) {
+        print(e);
+      }
     }
   }
 
@@ -233,7 +235,9 @@ class DatabaseService {
         'comments': FieldValue.arrayRemove([comment.toMap()])
       });
     } catch (e) {
-      print(e);
+      if (kDebugMode) {
+        print(e);
+      }
     }
   }
 
@@ -247,7 +251,9 @@ class DatabaseService {
       // Obtenha os dados atuais do post
       final postSnapshot = await postRef.get();
       if (!postSnapshot.exists) {
-        print('Post não encontrado');
+        if (kDebugMode) {
+          print('Post não encontrado');
+        }
         return;
       }
 
@@ -285,8 +291,18 @@ class DatabaseService {
     }
   }
 
+  Future<Comment> getCommentFromFirebase(
+      String postId, String commentId) async {
+    final postDoc = await _db.collection('Posts').doc(postId).get();
+    final post = Post.fromDocument(postDoc);
+    final comment =
+        post.comments.firstWhere((comment) => comment.id == commentId);
+    return comment;
+  }
+
   Future<void> likePostInFirebase(String postId) async {
     String uid = _auth.currentUser!.uid;
+    UserProfile? user = await getUserInfoFromFirebase(uid);
     try {
       DocumentSnapshot postDoc =
           await _db.collection('Posts').doc(postId).get();
@@ -378,33 +394,33 @@ class DatabaseService {
         .collection('Users')
         .doc(currentUserId)
         .collection('Following')
-        .add(user.toMap());
+        .doc(user.uid)
+        .set(user.toMap());
 
     await _db
         .collection('Users')
         .doc(user.uid)
         .collection('Followers')
-        .add(currentUser!.toMap());
+        .doc(currentUserId)
+        .set(currentUser!.toMap());
   }
 
   Future<void> unfollowUserInFirebase(String uid) async {
     final currentUserId = _auth.currentUser!.uid;
     try {
-      final docFollowingRef = await _db
+      await _db
           .collection('Users')
           .doc(currentUserId)
           .collection('Following')
-          .where('uid', isEqualTo: uid)
-          .get();
-      await docFollowingRef.docs.first.reference.delete();
+          .doc(uid)
+          .delete();
 
-      final docFollowersRef = await _db
+      await _db
           .collection('Users')
           .doc(uid)
           .collection('Followers')
-          .where('uid', isEqualTo: currentUserId)
-          .get();
-      await docFollowersRef.docs.first.reference.delete();
+          .doc(currentUserId)
+          .delete();
     } catch (e) {
       if (kDebugMode) {
         print(e);
@@ -484,6 +500,34 @@ class DatabaseService {
       print(e);
       return '';
     }
+  }
+
+  Future<List<Post>> getPostsFromFirebase() async {
+    final snapshot = await _db
+        .collection('Posts')
+        .orderBy('timestamp', descending: true)
+        .get();
+    return snapshot.docs.map((doc) => Post.fromDocument(doc)).toList();
+  }
+
+  Future<List<UserProfile>> getBlockedUsersFromFirebase() async {
+    final currentUserId = _auth.currentUser!.uid;
+    final snapshot = await _db
+        .collection('Users')
+        .doc(currentUserId)
+        .collection('BlockedUsers')
+        .get();
+    return snapshot.docs.map((doc) => UserProfile.fromDocument(doc)).toList();
+  }
+
+  Future<List<UserProfile>> getFollowingUsersFromFirebase() async {
+    final currentUserId = _auth.currentUser!.uid;
+    final snapshot = await _db
+        .collection('Users')
+        .doc(currentUserId)
+        .collection('Following')
+        .get();
+    return snapshot.docs.map((doc) => UserProfile.fromDocument(doc)).toList();
   }
 
   Future<void> deletePostImageInFirebase(String postId) async {
@@ -688,7 +732,9 @@ class DatabaseService {
             .toList();
       });
     } catch (e) {
-      print(e);
+      if (kDebugMode) {
+        print(e);
+      }
       return Stream.empty();
     }
   }
@@ -706,7 +752,9 @@ class DatabaseService {
             .toList();
       });
     } catch (e) {
-      print(e);
+      if (kDebugMode) {
+        print(e);
+      }
       return Stream.empty();
     }
   }
@@ -733,6 +781,11 @@ class DatabaseService {
         .snapshots()
         .map((snapshot) =>
             snapshot.docs.map((doc) => Post.fromDocument(doc)).toList());
+  }
+
+  Stream<QuerySnapshot<Map<String, dynamic>>> getPostsSnapshotStream() {
+    // Escutar apenas os novos dados adicionados
+    return _db.collection('Posts').snapshots().map((snapshot) => snapshot);
   }
 
   Stream<List<Comment>> getPostCommentsStream(String postId) {

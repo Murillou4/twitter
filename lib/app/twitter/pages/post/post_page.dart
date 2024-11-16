@@ -2,7 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:gap/gap.dart';
 import 'package:provider/provider.dart';
 import 'package:twitter/app/twitter/models/comment.dart';
-import 'package:twitter/app/twitter/providers/database_provider.dart';
+import 'package:twitter/app/twitter/models/user_profile.dart';
+import 'package:twitter/app/twitter/providers/user_provider.dart';
 import 'package:twitter/app/core/app_colors.dart';
 import 'package:twitter/app/twitter/models/post.dart';
 import 'package:twitter/app/twitter/services/database_service.dart';
@@ -13,10 +14,11 @@ class PostPage extends StatelessWidget {
   const PostPage({
     super.key,
     required this.post,
+    required this.user,
   });
 
   final Post post;
-
+  final UserProfile user;
   @override
   Widget build(BuildContext context) {
     final _db = DatabaseService();
@@ -41,6 +43,7 @@ class PostPage extends StatelessWidget {
             post: post,
             isClickble: false,
             isOnPage: true,
+            user: user,
           ),
           const Gap(15),
           const Padding(

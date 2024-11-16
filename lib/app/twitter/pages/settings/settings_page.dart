@@ -3,7 +3,7 @@ import 'package:gap/gap.dart';
 import 'package:provider/provider.dart';
 import 'package:twitter/app/core/app_colors.dart';
 import 'package:twitter/app/twitter/pages/blocked%20users/blocked_users_page.dart';
-import 'package:twitter/app/twitter/providers/database_provider.dart';
+import 'package:twitter/app/twitter/providers/user_provider.dart';
 import 'package:twitter/app/twitter/services/database_service.dart';
 import 'package:twitter/app/twitter/widgets/confirmation_box.dart';
 
@@ -78,9 +78,9 @@ class SettingsPage extends StatelessWidget {
                       'Tem certeza que deseja deletar sua conta? (Essa ação é Irreversível)',
                   confirmationText: 'Deletar',
                   onConfirm: () async {
-                    final databaseProvider =
-                        Provider.of<DatabaseProvider>(context, listen: false);
-                    await databaseProvider.deleteAccount(context);
+                    final userProvider =
+                        Provider.of<UserProvider>(context, listen: false);
+                    await userProvider.deleteAccount(context);
                   },
                 );
               },

@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:twitter/app/twitter/providers/database_provider.dart';
+import 'package:twitter/app/twitter/providers/user_provider.dart';
 
 import 'package:twitter/app/core/app_colors.dart';
 import 'package:twitter/app/twitter/models/user_profile.dart';

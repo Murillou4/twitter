@@ -1,22 +1,20 @@
+import 'dart:async';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
-
 import 'package:twitter/app/core/app_colors.dart';
-
 import 'package:twitter/app/twitter/pages/auth/widgets/my_textfield.dart';
 import 'package:twitter/app/twitter/services/database_service.dart';
-
 import 'package:twitter/app/twitter/pages/auth/services/auth_service.dart';
 import 'package:twitter/app/twitter/models/user_profile.dart';
-
 import 'package:twitter/app/twitter/widgets/my_button.dart';
 import 'package:twitter/app/twitter/widgets/my_loading_circle.dart';
 
-class DatabaseProvider extends ChangeNotifier {
+class UserProvider extends ChangeNotifier {
   final _auth = AuthService();
   final _db = DatabaseService();
   UserProfile? loggedUserInfo;
+  StreamSubscription? _notificationSubscription;
 
   Future<UserProfile> initLoggedUserInfo() async {
     try {
@@ -27,11 +25,13 @@ class DatabaseProvider extends ChangeNotifier {
 
       // Verifica se os dados foram encontrados
       if (userInfo == null) {
-        throw Exception('Dados do usuário não encontrados');
+        await FirebaseAuth.instance.signOut();
+        return Future.error('Dados do usuário não encontrados');
       }
 
       // Atualiza o estado e notifica
       loggedUserInfo = userInfo;
+      notifyListeners();
 
       return userInfo;
     } catch (e) {
@@ -40,6 +40,12 @@ class DatabaseProvider extends ChangeNotifier {
       }
       rethrow; // Propaga o erro para ser tratado pelo FutureBuilder
     }
+  }
+
+  Future<void> clear() async {
+    await _notificationSubscription?.cancel();
+    loggedUserInfo = null;
+    notifyListeners();
   }
 
   Future<void> reloadLoggedUserInfo() async {
@@ -73,7 +79,9 @@ class DatabaseProvider extends ChangeNotifier {
       searchResults = users;
       notifyListeners();
     } catch (e) {
-      print(e);
+      if (kDebugMode) {
+        print(e);
+      }
     }
   }
 
@@ -160,5 +168,11 @@ class DatabaseProvider extends ChangeNotifier {
             )
           : null;
     }
+  }
+
+  @override
+  void dispose() {
+    _notificationSubscription?.cancel();
+    super.dispose();
   }
 }
